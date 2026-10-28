@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = 'dashboard.html';
           }, 500);
         } else {
-          showAlert('Invalid credentials. Use template: zuhail@sibaq.com / 340340', 'error');
+          showAlert('Invalid admin email or password. Please try again.', 'error');
         }
       }, 700);
     });
