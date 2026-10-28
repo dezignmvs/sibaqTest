@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Candidate Exam Terminal — Sibaq '26</title>
+  <meta name="description" content="Official Candidate Examination Dashboard for Darul Huda Sibaq National Arts Fest '26." />
+  <link rel="icon" type="image/png" href="Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+  <link rel="apple-touch-icon" href="Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+
+  <!-- Modern Clean Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <!-- Desktop / Tablet Only Device Guard (Blocks Mobile & Small Screens < 768px) -->
+  <div class="device-guard-overlay" id="deviceGuardOverlay" role="alert">
+    <div class="device-guard-card">
+      <img src="Assett/DARUL HUDA SIBAQ LOGO_2026.png" alt="Sibaq '26" class="device-guard-logo" />
+      <div class="device-guard-icon">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </div>
+      <span class="device-guard-badge">DESKTOP &amp; TABLET ONLY</span>
+      <h1 class="device-guard-title">Unsupported Screen Size</h1>
+      <p class="device-guard-text">
+        The Candidate Exam Terminal works only on <strong>Desktop</strong> and <strong>Tablet</strong> screens (minimum width <code>768px</code>). Please use a Desktop or Tablet device to take your examination.
+      </p>
+    </div>
+  </div>
+
+  <!-- Ambient background elements for light frosted glass refraction -->
+  <div class="ambient-glow glow-gold" aria-hidden="true"></div>
+  <div class="ambient-glow glow-terracotta" aria-hidden="true"></div>
+  <div class="ambient-glow glow-green" aria-hidden="true"></div>
+
+  <!-- Main Exam Dashboard Wrapper -->
+  <div class="dash-layout">
+    <!-- Top Official Exam Terminal Navigation Bar -->
+    <header class="dash-nav">
+      <div class=" dash-nav-inner">
+        <div class="nav-brand">
+          <a href="dashboard.html" class="brand-link">
+            <img 
+              src="Assett/DARUL HUDA SIBAQ LOGO_2026.png" 
+              alt="Sibaq National Arts Fest '26" 
+              class="dash-logo"
+            />
+          </a>
+          <div class="nav-brand-divider"></div>
+          <div class="nav-terminal-meta">
+            <span class="terminal-kicker">SIBAQ '26 • CBT PORTAL</span>
+            <strong class="terminal-heading">Candidate Exam Terminal</strong>
+          </div>
+        </div>
+
+        <div class="nav-user-actions">
+          <div class="session-live-pill">
+            <span class="session-live-dot"></span>
+            <span>Exam Session Active</span>
+          </div>
+
+          <!-- Participant Pill -->
+          <div class="user-pill">
+            <div class="user-avatar" id="avatarInitial">M</div>
+            <div class="user-meta">
+              <span class="user-name" id="userName">Candidate</span>
+              <span class="user-email" id="userChestSub">Chest #—</span>
+            </div>
+          </div>
+
+          <!-- Logout / Exit Button -->
+          <button type="button" class="logout-btn" id="logoutBtn" title="Exit examination portal">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Exit Portal</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="dash-main">
+      <!-- Candidate Identity & Exam Dossier Banner -->
+      <section class="exam-dossier-card glass-card-dash">
+        <div class="dossier-left">
+          <div class="dossier-badges-row">
+            <div class="status-badge">
+              <span class="status-dot"></span>
+              <span id="candidateBadge">Verified Candidate</span>
+            </div>
+            <span class="dossier-inst-tag" id="instDisplay">Darul Huda Sibaq '26</span>
+          </div>
+
+          <h1 class="welcome-title">
+            <span class="welcome-greeting">Candidate:</span>
+            <span class="candidate-highlight-name" id="welcomeName">—</span>
+          </h1>
+          <p class="welcome-desc">
+            Your identity and chest code have been verified. Review your assigned competition program(s) below and click <strong>Start Exam</strong> when instructed by the invigilator.
+          </p>
+        </div>
+
+        <!-- Structured Candidate Exam Metadata Grid -->
+        <div class="dossier-metrics-grid">
+          <div class="dossier-metric-box primary-code-box">
+            <span class="metric-label">CHEST NUMBER</span>
+            <div class="metric-code-val" id="chestNumDisplay">#—</div>
+            <span class="metric-sub" id="statChestCaption">Verified ID</span>
+          </div>
+
+          <div class="dossier-metric-box">
+            <span class="metric-label">CATEGORY</span>
+            <div class="metric-val" id="candidateCategoryDisplay">—</div>
+            <span class="metric-sub">Allocated Division</span>
+          </div>
+
+          <div class="dossier-metric-box">
+            <span class="metric-label">ASSIGNED PAPERS</span>
+            <div class="metric-val" id="statEventsCount">00</div>
+            <span class="metric-sub" id="statNextVenue">Enrolled Programs</span>
+          </div>
+
+          <div class="dossier-metric-box">
+            <span class="metric-label">EXAM PROGRESS</span>
+            <div class="metric-val" id="statPointsDisplay">0/0 <span class="stat-sub">done</span></div>
+            <span class="metric-sub" id="statNextTime">Ready</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Assigned Examination Papers Section -->
+      <section class="section-card glass-card-dash">
+        <div class="section-header">
+          <div class="section-title-group">
+            <div class="section-icon-box">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <div>
+              <h2 class="section-title">Your Assigned Examination Programs</h2>
+              <p class="section-subtitle">Click "Start Exam" on your allocated program below to open your question paper</p>
+            </div>
+          </div>
+
+          <div class="exam-count-pill" id="examPapersCountBadge">0 Programs</div>
+        </div>
+
+        <!-- Candidate Programs Table with Start Exam Button -->
+        <div class="table-wrapper">
+          <table class="schedule-table">
+            <thead>
+              <tr>
+                <th>Program / Exam Paper</th>
+                <th>Category</th>
+                <th>Chest Code</th>
+                <th>Exam Status</th>
+                <th style="text-align: right; padding-right: 20px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+              <!-- Dynamically rendered from Admin-assigned programs -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Simple Glass Footer -->
+    <footer class="dash-footer">
+      <p>© 2026 Darul Huda Sibaq National Arts Fest • Official Candidate Examination Portal</p>
+    </footer>
+  </div>
+
+  <!-- Fullscreen Proctored Slide-by-Slide Examination Arena -->
+  <div class="cand-modal-overlay exam-fullscreen-overlay" id="candidateExamModal" aria-hidden="true">
+    <div class="exam-fullscreen-shell" role="dialog" aria-modal="true" aria-labelledby="candExamModalTitle">
+      
+      <!-- Top Proctored Exam Bar -->
+      <header class="exam-fs-topbar">
+        <div class="exam-fs-brand">
+          <span class="cand-modal-tag" id="candExamCategoryBadge">Category</span>
+          <h2 class="cand-modal-title" id="candExamModalTitle">Program Exam</h2>
+          <span class="cand-modal-live-pill">FULLSCREEN PROCTORED</span>
+        </div>
+
+        <div class="exam-fs-meta">
+          <div class="meta-bar-item">
+            <span class="meta-bar-label">Candidate</span>
+            <strong id="candExamStudentName">—</strong>
+          </div>
+          <div class="meta-bar-item">
+            <span class="meta-bar-label">Chest Code</span>
+            <strong class="mono-code" id="candExamChestNo">#—</strong>
+          </div>
+          <div class="meta-bar-item" id="candExamDurationWrap">
+            <span class="meta-bar-label">Duration</span>
+            <strong id="candExamDuration">Standard</strong>
+          </div>
+          <div class="autosave-indicator" id="autoSaveStatusPill">
+            <span class="autosave-dot"></span>
+            <span id="autoSaveStatusText">Auto-Save Ready</span>
+          </div>
+        </div>
+
+        <button type="button" class="exam-fs-exit-btn" id="candExamCloseBtn" title="Exit & Auto-Save Exam">
+          <span>Save &amp; Exit</span>
+        </button>
+      </header>
+
+      <!-- Slide Progress Bar & Question Number Pills -->
+      <div class="exam-fs-progress-strip">
+        <div class="slide-progress-track">
+          <div class="slide-progress-fill" id="examSlideProgressFill" style="width: 0%;"></div>
+        </div>
+        <div class="exam-slide-dots" id="examSlideDots"></div>
+      </div>
+
+      <!-- Main Center Question Slide Stage -->
+      <div class="exam-fs-stage-wrap">
+        <form id="candExamSubmitForm" class="exam-fs-stage-form" novalidate>
+          <div class="exam-slide-card glass-card-dash" id="candExamQuestionText">
+            <!-- Active question slide rendered dynamically here -->
+          </div>
+
+          <!-- Bottom Slide Navigation Bar (Back & Continue / Submit) -->
+          <footer class="exam-fs-bottombar">
+            <button type="button" class="slide-nav-btn slide-back-btn" id="examSlideBackBtn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+
+            <div class="slide-Step-counter" id="examSlideCounterText">
+              Question 1 of 1
+            </div>
+
+            <div class="slide-right-actions">
+              <button type="button" class="slide-nav-btn slide-continue-btn" id="examSlideNextBtn">
+                <span>Continue</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </button>
+
+              <button type="submit" class="action-btn slide-submit-btn" id="candExamFinishBtn" style="display: none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Submit Exam Paper</span>
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+
+      <!-- Proctoring Notice Footer -->
+      <div class="exam-fs-proctor-note">
+        <span>⚠️ Proctored Mode: Exiting fullscreen or zooming in/out will automatically save and lock your exam paper. Only Admin can reopen another chance.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit / Auto-Submit Animation Overlay (Shown ONLY at the moment of Submit or Auto-Submit) -->
+  <div class="submit-anim-overlay" id="examSubmissionAnimOverlay" style="display: none;" aria-hidden="true">
+    <div class="submit-anim-card glass-card-dash" id="examSubmissionAnimCard">
+      <div class="submit-anim-particles" aria-hidden="true">
+        <span class="p-dot p1"></span>
+        <span class="p-dot p2"></span>
+        <span class="p-dot p3"></span>
+        <span class="p-dot p4"></span>
+        <span class="p-dot p5"></span>
+        <span class="p-dot p6"></span>
+        <span class="p-dot p7"></span>
+        <span class="p-dot p8"></span>
+      </div>
+
+      <div class="submit-anim-icon-ring" id="examSubmissionIconRing">
+        <svg class="submit-check-svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+          <circle class="submit-ring-circle" cx="32" cy="32" r="28" stroke="currentColor" stroke-width="3.5" />
+          <path class="submit-check-path" d="M20 33.5L28.5 42L45 24" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+
+      <span class="submit-anim-badge" id="examSubmissionBadge">CLOUD SYNCED &amp; VERIFIED</span>
+      <h2 class="submit-anim-title" id="examSubmissionTitle">Exam Submitted Successfully!</h2>
+      <p class="submit-anim-subtitle" id="examSubmissionSubtitle">All your responses have been securely saved to the examination server.</p>
+
+      <div class="submit-anim-meta-grid">
+        <div class="submit-meta-box">
+          <span class="submit-meta-label">Program</span>
+          <strong id="examSubmissionProgName">—</strong>
+        </div>
+        <div class="submit-meta-box">
+          <span class="submit-meta-label">Responses Saved</span>
+          <strong id="examSubmissionAnsweredCount">0 / 0 Slides</strong>
+        </div>
+        <div class="submit-meta-box">
+          <span class="submit-meta-label">Chest Code</span>
+          <strong id="examSubmissionChestCode">#—</strong>
+        </div>
+      </div>
+
+      <div class="submit-anim-progress-bar">
+        <div class="submit-anim-progress-fill" id="examSubmissionProgressFill"></div>
+      </div>
+
+      <button type="button" class="action-btn submit-anim-close-btn" id="examSubmissionDismissBtn">
+        <span>Return to Candidate Portal</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Interactive Toast / Notification -->
+  <div class="toast-notification" id="toastNotice" role="status"></div>
+
+  <!-- Firebase JS SDK v13.1.0 (App, Analytics, Auth with Anonymous Sign-In, Cloud Firestore DB) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6RKG_E0KF92rB0qBrBYDYEr6w6R4L74Q",
+      authDomain: "sibaqx.firebaseapp.com",
+      projectId: "sibaqx",
+      storageBucket: "sibaqx.firebasestorage.app",
+      messagingSenderId: "1098463628698",
+      appId: "1:1098463628698:web:557d8098376d9c9b087e23",
+      measurementId: "G-M6TGM154H0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch (e) {}
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.SibaqFirebase = {
+      app,
+      auth,
+      db,
+      signInAnonymously,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      getDocs,
+      onSnapshot
+    };
+
+    signInAnonymously(auth)
+      .then(() => {
+        window.dispatchEvent(new CustomEvent('firebase-candidate-ready'));
+      })
+      .catch(() => {
+        window.dispatchEvent(new CustomEvent('firebase-candidate-ready'));
+      });
+  </script>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

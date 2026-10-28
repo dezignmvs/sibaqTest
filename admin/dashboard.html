@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - Sibaq '26</title>
+  <meta name="description" content="Admin portal data management for Darul Huda Sibaq National Arts Fest '26." />
+  <link rel="icon" type="image/png" href="../Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+  <link rel="apple-touch-icon" href="../Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+
+  <!-- Modern Clean Typography & Hugeicons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css" />
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <!-- Desktop / Tablet Only Device Guard (Blocks Mobile & Small Screens < 768px) -->
+  <div class="device-guard-overlay" id="deviceGuardOverlay" role="alert">
+    <div class="device-guard-card">
+      <img src="../Assett/DARUL HUDA SIBAQ LOGO_2026.png" alt="Sibaq '26" class="device-guard-logo" />
+      <div class="device-guard-icon">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </div>
+      <span class="device-guard-badge">DESKTOP &amp; TABLET ONLY</span>
+      <h1 class="device-guard-title">Unsupported Screen Size</h1>
+      <p class="device-guard-text">
+        The Sibaq '26 Admin Dashboard works only on <strong>Desktop</strong> and <strong>Tablet</strong> screens (minimum width <code>768px</code>). Please switch to a Desktop or Tablet screen to continue.
+      </p>
+    </div>
+  </div>
+
+  <!-- Ambient background elements for subtle frosted glass refraction -->
+  <div class="ambient-glow glow-gold" aria-hidden="true"></div>
+  <div class="ambient-glow glow-terracotta" aria-hidden="true"></div>
+  <div class="ambient-glow glow-green" aria-hidden="true"></div>
+
+  <div class="admin-layout">
+    <!-- Left Floating Glass Sidebar (Single Unified Card) -->
+    <aside class="admin-sidebar glass-card-dash" id="adminSidebar">
+      <!-- Brand Logo Header -->
+      <div class="sidebar-header">
+        <a href="dashboard.html" class="sidebar-brand" title="Sibaq '26 Admin Dashboard">
+          <img 
+            src="../Assett/DARUL HUDA SIBAQ LOGO_2026.png" 
+            alt="Sibaq National Arts Fest '26" 
+            class="sidebar-logo"
+          />
+        </a>
+      </div>
+
+      <!-- Navigation Menu with Icons -->
+      <nav class="sidebar-menu" aria-label="Admin Navigation">
+        <button type="button" class="nav-link" data-tab="Overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <path d="M7 13a5 5 0 0 1 10 0"></path>
+            <line x1="12" y1="13" x2="12" y2="10"></line>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span class="nav-text">Overview</span>
+        </button>
+
+        <!-- Requested "Data" Menu Item with Submenu (including "0candidate") -->
+        <div class="nav-item-group open" id="dataNavGroup">
+          <button type="button" class="nav-link active" data-tab="Data" id="dataNavBtn">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+            <span class="nav-text">Data</span>
+            <svg class="submenu-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="sidebar-submenu" id="dataSubmenu">
+            <button type="button" class="submenu-link active" data-subpage="programs" id="submenuAllPrograms">
+              <span class="submenu-bullet"></span>
+              <span>All Programs</span>
+            </button>
+            <button type="button" class="submenu-link" data-subpage="candidates" id="submenuCandidates">
+              <span class="submenu-bullet"></span>
+              <span>Candidates</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="nav-link" data-tab="Question" id="questionNavBtn">
+          <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="12" y1="3" x2="12" y2="21"></line>
+          </svg>
+          <span class="nav-text">Question</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="Valuation" id="valuationNavBtn">
+          <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          <span class="nav-text">Valuation</span>
+        </button>
+
+        <button type="button" class="nav-link" data-tab="Settings" id="settingsNavBtn">
+          <svg class="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+          </svg>
+          <span class="nav-text">Settings</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer User Profile & Logout -->
+      <div class="sidebar-footer">
+        <div class="admin-profile-pill">
+          <div class="admin-avatar">Z</div>
+          <div class="admin-meta">
+            <span class="admin-name" id="userName">Zuhail</span>
+            <span class="admin-role">Admin Portal</span>
+          </div>
+        </div>
+
+        <button type="button" class="logout-btn" id="logoutBtn" title="Log out from admin session">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Log out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="admin-main">
+      <!-- Breadcrumb Bar -->
+      <div class="breadcrumb-container">
+        <div class="breadcrumb-pill">
+          <svg class="home-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span class="crumb-separator">&gt;</span>
+          <span class="crumb-parent" id="breadcrumbParent">Data</span>
+          <span class="crumb-separator" id="breadcrumbParentSep">&gt;</span>
+          <span class="crumb-active" id="breadcrumbLabel">All Programs</span>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 1: ALL PROGRAMS VIEW (SEPARATE PAGE)
+           =================================================================== -->
+      <div class="data-subpage-view active" id="programsView">
+        <!-- Section Title & Actions -->
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h1 class="panel-title" id="panelHeading">All Programs</h1>
+            <p class="panel-desc" id="panelSubtitle">Manage festival programs, categories, and registered candidates</p>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="add-btn" id="addRecordBtn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Add Record</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Glass Data Card Section -->
+        <section class="glass-card-dash data-container">
+          <!-- Search and Filter Bar -->
+          <div class="table-toolbar">
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="searchInput" placeholder="Search by program, category, candidate, or ID..." />
+            </div>
+
+            <div class="filter-actions">
+              <button type="button" class="filter-btn active" data-filter="all">All</button>
+              <button type="button" class="filter-btn" data-filter="Bidaya">Bidaya</button>
+              <button type="button" class="filter-btn" data-filter="Ūlā">Ūlā</button>
+              <button type="button" class="filter-btn" data-filter="Thāniya">Thāniya</button>
+              <button type="button" class="filter-btn" data-filter="Thānawiyya">Thānawiyya</button>
+              <button type="button" class="filter-btn" data-filter="Āliya">Āliya</button>
+            </div>
+          </div>
+
+          <!-- Clean Data Table -->
+          <div class="table-wrapper">
+            <table class="admin-data-table" id="dataTable">
+              <thead>
+                <tr>
+                  <th>Record ID</th>
+                  <th>Category</th>
+                  <th>Program Name</th>
+                  <th>Candidate</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody">
+                <tr class="empty-state-row">
+                  <td colspan="5" style="text-align: center; padding: 48px 20px; color: var(--text-muted);">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-dim);">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                      </svg>
+                      <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">No records yet</span>
+                      <span style="font-size: 0.8rem;">Click "+ Add Record" above to add your first festival entry</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 2: CANDIDATES VIEW (SEPARATE PAGE)
+           =================================================================== -->
+      <div class="data-subpage-view" id="candidatesView" style="display: none;">
+        <!-- Candidates Header -->
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h1 class="panel-title">Candidates</h1>
+            <p class="panel-desc">Register and manage festival students &amp; candidate allocations</p>
+          </div>
+          <div class="panel-actions">
+            <div class="students-count-badge" id="studentsCountBadge">0 Candidates</div>
+          </div>
+        </header>
+
+        <!-- Candidate Registration Section -->
+        <section class="glass-card-dash students-container" id="studentsSection">
+          <div class="section-card-header">
+            <div class="section-card-title-group">
+              <div class="section-icon-badge">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
+              <div>
+                <h2 class="section-card-title">Enter Candidate / Student</h2>
+                <p class="section-card-subtitle">Register festival candidates with name, category, and chest number</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Candidate Entry Form -->
+          <form class="student-entry-form" id="studentForm" novalidate>
+            <div class="student-form-fields">
+              <!-- 1. Candidate Name -->
+              <div class="form-group student-field-group">
+                <label for="studentName" class="form-section-label">Candidate Name</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <input 
+                    type="text" 
+                    id="studentName" 
+                    name="studentName" 
+                    placeholder="e.g. Zuhail Muhammed" 
+                    required 
+                  />
+                </div>
+                <span class="field-error" id="studentNameError"></span>
+              </div>
+
+              <!-- 2. Chest Number -->
+              <div class="form-group student-field-group">
+                <label for="studentChestNo" class="form-section-label">Chest No</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="9" x2="20" y2="9"></line>
+                    <line x1="4" y1="15" x2="20" y2="15"></line>
+                    <line x1="10" y1="3" x2="8" y2="21"></line>
+                    <line x1="16" y1="3" x2="14" y2="21"></line>
+                  </svg>
+                  <input 
+                    type="text" 
+                    id="studentChestNo" 
+                    name="studentChestNo" 
+                    placeholder="e.g. A10" 
+                    required 
+                  />
+                </div>
+                <span class="field-error" id="studentChestNoError"></span>
+              </div>
+
+              <!-- 3. Category Radio Chips -->
+              <div class="form-group student-field-group full-width">
+                <label class="form-section-label">Category</label>
+                <div class="category-radio-group student-category-group" id="studentCategoryGroup">
+                  <label class="category-radio-chip">
+                    <input type="radio" name="studentCategory" value="Bidaya" />
+                    <span class="chip-indicator"></span>
+                    <span class="chip-text">Bidaya</span>
+                  </label>
+                  <label class="category-radio-chip">
+                    <input type="radio" name="studentCategory" value="Ūlā" />
+                    <span class="chip-indicator"></span>
+                    <span class="chip-text">Ūlā</span>
+                  </label>
+                  <label class="category-radio-chip">
+                    <input type="radio" name="studentCategory" value="Thāniya" />
+                    <span class="chip-indicator"></span>
+                    <span class="chip-text">Thāniya</span>
+                  </label>
+                  <label class="category-radio-chip">
+                    <input type="radio" name="studentCategory" value="Thānawiyya" />
+                    <span class="chip-indicator"></span>
+                    <span class="chip-text">Thānawiyya</span>
+                  </label>
+                  <label class="category-radio-chip">
+                    <input type="radio" name="studentCategory" value="Āliya" />
+                    <span class="chip-indicator"></span>
+                    <span class="chip-text">Āliya</span>
+                  </label>
+                </div>
+                <span class="field-error" id="studentCategoryError"></span>
+              </div>
+            </div>
+
+            <!-- 4. Submit Action -->
+            <div class="student-form-bottom">
+              <button type="submit" class="submit-btn student-submit-btn" id="submitStudentBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="8.5" cy="7" r="4"></circle>
+                  <line x1="20" y1="8" x2="20" y2="14"></line>
+                  <line x1="23" y1="11" x2="17" y2="11"></line>
+                </svg>
+                <span class="btn-text">Submit Candidate</span>
+                <span class="btn-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Registered Candidates Table -->
+          <div class="students-table-section">
+            <div class="students-table-toolbar">
+              <div class="students-table-title-wrap">
+                <h3 class="students-table-title">Registered Candidates List</h3>
+                <span class="students-table-hint">Live cloud records in Firebase</span>
+              </div>
+              <div class="students-search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="studentSearchInput" placeholder="Filter candidates by name, chest no..." />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="admin-data-table" id="studentsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 130px;">Chest No</th>
+                    <th>Candidate Name</th>
+                    <th>Category</th>
+                    <th style="width: 90px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="studentsTableBody">
+                  <tr class="empty-state-row">
+                    <td colspan="4" style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-dim);">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                        </svg>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: var(--text-main);">No candidates entered yet</span>
+                        <span style="font-size: 0.775rem;">Fill out the form above to add your first candidate record</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 3: QUESTION VIEW (PROGRAMS WITH SET EXAM BUTTON)
+           =================================================================== -->
+      <div class="data-subpage-view" id="questionView" style="display: none;">
+        <!-- Question Page Header -->
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h1 class="panel-title">Question</h1>
+            <p class="panel-desc">View created festival programs with their category and set exam questions</p>
+          </div>
+          <div class="panel-actions">
+            <div class="students-count-badge" id="questionProgramsCountBadge">0 Programs</div>
+          </div>
+        </header>
+
+        <!-- Question Programs List Card -->
+        <section class="glass-card-dash data-container">
+          <!-- Search and Category Filter Bar -->
+          <div class="table-toolbar">
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="questionSearchInput" placeholder="Search created program or category..." />
+            </div>
+
+            <div class="filter-actions" id="questionFilterActions">
+              <button type="button" class="filter-btn question-filter-btn active" data-qfilter="all">All</button>
+              <button type="button" class="filter-btn question-filter-btn" data-qfilter="Bidaya">Bidaya</button>
+              <button type="button" class="filter-btn question-filter-btn" data-qfilter="Ūlā">Ūlā</button>
+              <button type="button" class="filter-btn question-filter-btn" data-qfilter="Thāniya">Thāniya</button>
+              <button type="button" class="filter-btn question-filter-btn" data-qfilter="Thānawiyya">Thānawiyya</button>
+              <button type="button" class="filter-btn question-filter-btn" data-qfilter="Āliya">Āliya</button>
+            </div>
+          </div>
+
+          <!-- Created Programs Table with Program Name, Category, and Set Exam Button -->
+          <div class="table-wrapper">
+            <table class="admin-data-table" id="questionProgramsTable">
+              <thead>
+                <tr>
+                  <th>Program Name</th>
+                  <th>Category</th>
+                  <th style="text-align: right; padding-right: 24px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="questionTableBody">
+                <tr class="empty-state-row">
+                  <td colspan="3" style="text-align: center; padding: 48px 20px; color: var(--text-muted);">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-dim);">
+                        <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="12" y1="3" x2="12" y2="21"></line>
+                      </svg>
+                      <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">No programs created yet</span>
+                      <span style="font-size: 0.8rem;">Create a program in "Data &gt; All Programs" to see it here and set its exam</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 4: FULL-PAGE EXAM BUILDER (GOOGLE FORMS STYLE)
+           =================================================================== -->
+      <div class="data-subpage-view" id="setExamPageView" style="display: none;">
+        <!-- Top Sticky Exam Builder Action Bar -->
+        <header class="exam-builder-topbar glass-card-dash">
+          <div class="builder-topbar-left">
+            <button type="button" class="exam-back-btn" id="examBuilderBackBtn" title="Back to Question Programs">
+              <i class="hgi hgi-stroke hgi-rounded hgi-corner-up-left"></i>
+              <span>Back</span>
+            </button>
+            <div class="builder-topbar-divider"></div>
+            <div class="builder-program-meta">
+              <div class="builder-title-row">
+                <h1 class="builder-program-title" id="examModalProgramName">Program Name</h1>
+                <span class="category-tag" id="examModalCategory">Category</span>
+              </div>
+              <span class="builder-subtitle">Google Forms-style Unlimited Question Builder</span>
+            </div>
+          </div>
+
+          <div class="builder-topbar-right">
+            <div class="builder-stats-pill">
+              <span id="examBuilderQuestionCount">1 Question</span>
+              <span class="dot-sep">•</span>
+              <span id="examBuilderTotalMarks">1 Pt</span>
+            </div>
+
+            <button type="button" class="builder-add-top-btn" id="addExamQuestionTopBtn">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Add Question</span>
+            </button>
+
+            <button type="button" class="submit-btn builder-save-btn" id="saveExamBtn">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span class="btn-text">Save Exam</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Main Google Forms-Style Builder Canvas -->
+        <form id="setExamForm" class="gform-builder-canvas" novalidate>
+          <!-- Form Header Card (Instructions & Duration) -->
+          <section class="gform-header-card glass-card-dash">
+            <div class="gform-card-accent"></div>
+            <div class="gform-header-body">
+              <div class="gform-header-grid">
+                <div class="form-group">
+                  <label for="examFormDescriptionInput" class="form-section-label">Exam Instructions / Description</label>
+                  <input
+                    type="text"
+                    id="examFormDescriptionInput"
+                    class="gform-desc-input"
+                    placeholder="Enter general instructions for candidates (e.g. Answer all questions carefully)..."
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="examDurationInput" class="form-section-label">Exam Duration</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <input
+                      type="text"
+                      id="examDurationInput"
+                      placeholder="e.g. 30 Minutes"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Dynamic Unlimited Questions Container -->
+          <div class="gform-questions-list" id="examQuestionsList"></div>
+
+          <!-- Quick Add Question Toolbar (Bottom Floating/Dock) -->
+          <div class="gform-add-toolbar glass-card-dash">
+            <button type="button" class="add-program-btn gform-main-add-btn" id="addExamQuestionBtn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>+ Add New Question</span>
+            </button>
+
+            <div class="quick-type-chips">
+              <span class="quick-type-label">Quick Add:</span>
+              <button type="button" class="quick-type-btn" data-qtype="mcq">MCQ</button>
+              <button type="button" class="quick-type-btn" data-qtype="match">Match the Following</button>
+              <button type="button" class="quick-type-btn" data-qtype="checkbox">Checkbox</button>
+              <button type="button" class="quick-type-btn" data-qtype="radio">Radio</button>
+              <button type="button" class="quick-type-btn" data-qtype="short_answer">Short Answer</button>
+              <button type="button" class="quick-type-btn" data-qtype="long_answer">Long Answer</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 5: VALUATION VIEW (STUDENTS SUBMITTED EXAMS & PROGRAM VALUATION)
+           =================================================================== -->
+      <div class="data-subpage-view" id="valuationView" style="display: none;">
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h1 class="panel-title">Valuation</h1>
+            <p class="panel-desc">Review students' submitted exams and perform valuation for each program</p>
+          </div>
+          <div class="panel-actions valuation-summary-pills">
+            <div class="students-count-badge" id="valuationSubmissionsBadge">0 Submissions</div>
+            <div class="students-count-badge valuated-count-pill" id="valuationCompletedBadge">0 Valuated</div>
+          </div>
+        </header>
+
+        <section class="glass-card-dash data-container">
+          <!-- Valuation Toolbar: Search, Program Filter Dropdown, & Category Filter Chips -->
+          <div class="table-toolbar valuation-toolbar">
+            <div class="valuation-search-group">
+              <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="valuationSearchInput" placeholder="Search by candidate, chest no, or program..." />
+              </div>
+
+              <select id="valuationProgramSelect" class="valuation-prog-select" title="Filter by Program">
+                <option value="all">All Programs</option>
+              </select>
+            </div>
+
+            <div class="filter-actions" id="valuationFilterActions">
+              <button type="button" class="filter-btn valuation-filter-btn active" data-vfilter="all">All</button>
+              <button type="button" class="filter-btn valuation-filter-btn" data-vfilter="submitted">Submitted Only</button>
+              <button type="button" class="filter-btn valuation-filter-btn" data-vfilter="pending">Pending Valuation</button>
+              <button type="button" class="filter-btn valuation-filter-btn" data-vfilter="valuated">Valuated</button>
+            </div>
+          </div>
+
+          <!-- Submitted Exams Table -->
+          <div class="table-wrapper">
+            <table class="admin-data-table" id="valuationTable">
+              <thead>
+                <tr>
+                  <th>Candidate &amp; Chest No</th>
+                  <th>Program Name</th>
+                  <th>Category</th>
+                  <th>Exam Status</th>
+                  <th>Marks / Valuation</th>
+                  <th style="text-align: right; padding-right: 24px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="valuationTableBody">
+                <tr class="empty-state-row">
+                  <td colspan="6" style="text-align: center; padding: 48px 20px; color: var(--text-muted);">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-dim);">
+                        <path d="M9 11l3 3L22 4"></path>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                      </svg>
+                      <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">No submitted student exams yet</span>
+                      <span style="font-size: 0.8rem;">Once students submit or complete their program exams, they appear here for valuation</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 6: FULL-PAGE VALUATION SHEET (TAKE VALUATION FOR CANDIDATE EXAM)
+           =================================================================== -->
+      <div class="data-subpage-view" id="valuationSheetView" style="display: none;">
+        <header class="exam-builder-topbar glass-card-dash">
+          <div class="builder-topbar-left">
+            <button type="button" class="exam-back-btn" id="valuationSheetBackBtn" title="Back to Valuation List">
+              <i class="hgi hgi-stroke hgi-rounded hgi-corner-up-left"></i>
+              <span>Back</span>
+            </button>
+            <div class="builder-topbar-divider"></div>
+            <div class="builder-program-meta">
+              <div class="builder-title-row">
+                <h1 class="builder-program-title" id="valSheetCandidateName">Candidate Name (#A10)</h1>
+                <span class="category-tag" id="valSheetCategory">Category</span>
+              </div>
+              <span class="builder-subtitle" id="valSheetProgramSubtitle">Program Valuation Sheet</span>
+            </div>
+          </div>
+
+          <div class="builder-topbar-right">
+            <div class="valuation-live-score-pill">
+              <span class="score-pill-label">Total Score:</span>
+              <strong id="valSheetLiveTotal">0 / 0 Pts</strong>
+            </div>
+
+            <button type="button" class="builder-add-top-btn" id="autoGradeObjectiveBtn" title="Auto-grade objective answers from answer keys">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Auto-Check Objective</span>
+            </button>
+
+            <button type="button" class="submit-btn builder-save-btn" id="saveValuationBtn">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              <span class="btn-text">Save Valuation</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
+        </header>
+
+        <form id="valuationSheetForm" class="gform-builder-canvas" novalidate>
+          <!-- Overall Valuation Summary & Examiner Remarks Card -->
+          <section class="gform-header-card glass-card-dash">
+            <div class="gform-card-accent"></div>
+            <div class="gform-header-body">
+              <div class="valuation-overview-grid">
+                <div class="form-group">
+                  <label for="valSheetOverallRemarks" class="form-section-label">Examiner Remarks / Feedback (Optional)</label>
+                  <input
+                    type="text"
+                    id="valSheetOverallRemarks"
+                    class="gform-desc-input"
+                    placeholder="Add overall valuation note or feedback for this student's exam..."
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="valSheetManualTotalInput" class="form-section-label">Final Awarded Marks</label>
+                  <div class="val-total-input-box">
+                    <input
+                      type="number"
+                      id="valSheetManualTotalInput"
+                      step="0.5"
+                      min="0"
+                      class="val-final-score-input"
+                      placeholder="0"
+                    />
+                    <span class="val-max-denom" id="valSheetMaxDenom">/ 10 Pts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Candidate Questions & Answers Valuation Cards -->
+          <div class="gform-questions-list" id="valuationQuestionsContainer"></div>
+        </form>
+      </div>
+
+      <!-- ===================================================================
+           PAGE 7: SETTINGS VIEW (FROM & TO TIMER + MULTI-PROGRAM SELECTOR)
+           =================================================================== -->
+      <div class="data-subpage-view" id="settingsView" style="display: none;">
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h1 class="panel-title">Settings</h1>
+            <p class="panel-desc">Configure exam From &amp; To timer schedules for multiple festival programs</p>
+          </div>
+          <div class="panel-actions">
+            <div class="students-count-badge" id="scheduledProgramsCountBadge">0 Scheduled</div>
+          </div>
+        </header>
+
+        <section class="glass-card-dash students-container" id="settingsScheduleSection">
+          <div class="section-card-header">
+            <div class="section-card-title-group">
+              <div class="section-icon-badge">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div>
+                <h2 class="section-card-title">Set Exam Timer Schedule</h2>
+                <p class="section-card-subtitle">Set From &amp; To timer window and search &amp; select multiple programs</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings Timer Form: 1. From & To Timer, 2. Search & Select Multiple Programs -->
+          <form class="student-entry-form" id="settingsTimerForm" novalidate>
+            <div class="settings-timer-grid">
+              <!-- From Timer -->
+              <div class="form-group">
+                <label for="scheduleFromTime" class="form-section-label">From Timer (Start Time)</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <input type="time" id="scheduleFromTime" name="scheduleFromTime" required />
+                </div>
+                <span class="field-error" id="scheduleFromTimeError"></span>
+              </div>
+
+              <!-- To Timer -->
+              <div class="form-group">
+                <label for="scheduleToTime" class="form-section-label">To Timer (End Time)</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <input type="time" id="scheduleToTime" name="scheduleToTime" required />
+                </div>
+                <span class="field-error" id="scheduleToTimeError"></span>
+              </div>
+
+              <!-- Computed Duration Preview -->
+              <div class="form-group">
+                <label class="form-section-label">Calculated Exam Window</label>
+                <div class="timer-duration-preview" id="scheduleDurationPreview">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <span id="scheduleDurationText">Select From &amp; To time</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search & Select Program (Multiple) -->
+            <div class="program-students-box settings-program-selector-box">
+              <div class="students-box-header">
+                <div>
+                  <span class="students-box-label">Search &amp; Select Programs (Multiple):</span>
+                  <span class="students-box-hint">Search created programs and select one or more to apply this timer</span>
+                </div>
+                <div class="settings-selector-quick-btns">
+                  <button type="button" class="quick-select-prog-btn" id="selectAllProgramsScheduleBtn">Select All Programs</button>
+                  <button type="button" class="quick-select-prog-btn clear-btn" id="clearSelectedProgramsScheduleBtn">Clear</button>
+                </div>
+              </div>
+
+              <!-- Selected Program Chips -->
+              <div class="selected-students-list" id="selectedScheduleProgramsList"></div>
+
+              <!-- Search Input & Multi-Select Dropdown -->
+              <div class="student-search-control" id="scheduleProgramSearchControl">
+                <div class="input-wrapper student-search-input-wrap">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input
+                    type="text"
+                    id="scheduleProgramSearchInput"
+                    class="student-search-input"
+                    placeholder="Search &amp; select multiple programs by name or category..."
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="student-suggestions-dropdown" id="scheduleProgramDropdown" style="display: none;"></div>
+              </div>
+              <span class="field-error" id="scheduleProgramsError"></span>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="student-form-bottom">
+              <button type="submit" class="submit-btn student-submit-btn" id="saveScheduleTimerBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span class="btn-text">Save Timer Schedule</span>
+                <span class="btn-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Scheduled Programs List Table -->
+          <div class="students-table-section">
+            <div class="students-table-toolbar">
+              <div class="students-table-title-wrap">
+                <h3 class="students-table-title">Program Timer Schedules</h3>
+                <span class="students-table-hint">Active From &amp; To timers synced across candidate exams</span>
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="admin-data-table" id="scheduledProgramsTable">
+                <thead>
+                  <tr>
+                    <th>Program Name</th>
+                    <th>Category</th>
+                    <th>From Timer</th>
+                    <th>To Timer</th>
+                    <th>Duration</th>
+                    <th style="text-align: right; padding-right: 20px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="scheduledProgramsTableBody">
+                  <tr class="empty-state-row">
+                    <td colspan="6" style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-dim);">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: var(--text-main);">No program timers configured yet</span>
+                        <span style="font-size: 0.775rem;">Use the form above to set From &amp; To timer schedules for one or multiple programs</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Popup for Add Record -->
+  <div class="modal-overlay" id="addRecordModal" aria-hidden="true">
+    <div class="modal-card glass-card-dash" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <!-- Modal Header with Back and Close -->
+      <div class="modal-header">
+        <button type="button" class="modal-back-btn" id="modalBackBtn" title="Back to data table">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Back</span>
+        </button>
+        <h2 class="modal-title" id="modalTitle">Add Record</h2>
+        <button type="button" class="modal-close-x" id="modalCloseX" aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Add Record Form (1. Category, 2. Enter Program(s) with Search & Select Students) -->
+      <form class="modal-form" id="addRecordForm" novalidate>
+        <!-- 1. Category Field (Radio Buttons at top) -->
+        <div class="form-group modal-category-group">
+          <label class="form-section-label">Category</label>
+          <div class="category-radio-group" id="categoryRadioGroup">
+            <label class="category-radio-chip">
+              <input type="radio" name="recordCategory" value="Bidaya" />
+              <span class="chip-indicator"></span>
+              <span class="chip-text">Bidaya</span>
+            </label>
+            <label class="category-radio-chip">
+              <input type="radio" name="recordCategory" value="Ūlā" />
+              <span class="chip-indicator"></span>
+              <span class="chip-text">Ūlā</span>
+            </label>
+            <label class="category-radio-chip">
+              <input type="radio" name="recordCategory" value="Thāniya" />
+              <span class="chip-indicator"></span>
+              <span class="chip-text">Thāniya</span>
+            </label>
+            <label class="category-radio-chip">
+              <input type="radio" name="recordCategory" value="Thānawiyya" />
+              <span class="chip-indicator"></span>
+              <span class="chip-text">Thānawiyya</span>
+            </label>
+            <label class="category-radio-chip">
+              <input type="radio" name="recordCategory" value="Āliya" />
+              <span class="chip-indicator"></span>
+              <span class="chip-text">Āliya</span>
+            </label>
+          </div>
+          <span class="field-error" id="recordCategoryError"></span>
+        </div>
+
+        <!-- 2. Multi-Program Entering Container -->
+        <div class="programs-entry-wrapper">
+          <div class="programs-entry-header">
+            <label class="form-section-label">Program &amp; Student Allocation</label>
+            <span class="programs-entry-hint">Add multiple programs and search/select students for each</span>
+          </div>
+
+          <div class="programs-list" id="programsList">
+            <!-- Program Block 1 (Dynamic / Reusable) -->
+            <div class="program-entry-card" data-program-index="0">
+              <div class="program-card-top">
+                <div class="program-badge-title">
+                  <span class="program-badge-num">1</span>
+                  <span class="program-badge-label">Program #1</span>
+                </div>
+                <button type="button" class="remove-program-btn" title="Remove this program" style="display: none;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  <span>Remove</span>
+                </button>
+              </div>
+
+              <!-- Program Name Input -->
+              <div class="program-field-group">
+                <div class="input-wrapper">
+                  <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <input 
+                    type="text" 
+                    class="program-name-input" 
+                    placeholder="Program Name (e.g. Arabic Calligraphy - Thuluth)" 
+                    required 
+                  />
+                </div>
+                <span class="field-error program-name-error"></span>
+              </div>
+
+              <!-- Student Search & Selection Box -->
+              <div class="program-students-box">
+                <div class="students-box-header">
+                  <span class="students-box-label">Candidates / Students:</span>
+                  <span class="students-box-hint">Search from registered students or type candidate</span>
+                </div>
+
+                <!-- Selected Student Chips -->
+                <div class="selected-students-list"></div>
+
+                <!-- Student Search Input with Live Dropdown -->
+                <div class="student-search-control">
+                  <div class="input-wrapper student-search-input-wrap">
+                    <svg class="input-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input 
+                      type="text" 
+                      class="student-search-input" 
+                      placeholder="Search student by name or chest no (or type name)..." 
+                      autocomplete="off" 
+                    />
+                  </div>
+                  <!-- Suggestions Dropdown populated from IndexedDB -->
+                  <div class="student-suggestions-dropdown" style="display: none;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add Another Program Button -->
+          <button type="button" class="add-program-btn" id="addAnotherProgramBtn">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Add Another Program</span>
+          </button>
+        </div>
+
+        <!-- Modal Submit Actions -->
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" id="modalCancelBtn">Cancel</button>
+          <button type="submit" class="submit-btn" id="submitRecordBtn">
+            <span class="btn-text">Submit</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Interactive Toast / Notification -->
+  <div class="toast-notification" id="toastNotice" role="status"></div>
+
+  <!-- Firebase JS SDK v13.1.0 (App, Analytics, Auth with Anonymous Sign-In, Cloud Firestore DB) -->
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      getDocs, 
+      deleteDoc, 
+      onSnapshot, 
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6RKG_E0KF92rB0qBrBYDYEr6w6R4L74Q",
+      authDomain: "sibaqx.firebaseapp.com",
+      projectId: "sibaqx",
+      storageBucket: "sibaqx.firebasestorage.app",
+      messagingSenderId: "1098463628698",
+      appId: "1:1098463628698:web:557d8098376d9c9b087e23",
+      measurementId: "G-M6TGM154H0"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch (e) {}
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Global Firebase state for portal data operations
+    window.SibaqFirebase = {
+      app,
+      auth,
+      db,
+      signInAnonymously,
+      onAuthStateChanged,
+      collection,
+      doc,
+      setDoc,
+      getDocs,
+      deleteDoc,
+      onSnapshot,
+      serverTimestamp,
+      ready: false
+    };
+
+    // Sign in anonymously as requested: Authentication > sign-in method > Anonymous
+    signInAnonymously(auth)
+      .then((userCredential) => {
+        console.log("Firebase Anonymous Sign-In success. UID:", userCredential.user.uid);
+        window.SibaqFirebase.currentUser = userCredential.user;
+        window.SibaqFirebase.ready = true;
+        window.dispatchEvent(new CustomEvent('firebase-auth-ready', { detail: { user: userCredential.user } }));
+      })
+      .catch((error) => {
+        console.warn("Firebase Anonymous Sign-In note:", error);
+        window.SibaqFirebase.ready = true;
+        window.dispatchEvent(new CustomEvent('firebase-auth-ready', { detail: { error } }));
+      });
+  </script>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

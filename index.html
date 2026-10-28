@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sibaq '26 — Online Examination Portal</title>
+  <meta name="description" content="Official Candidate Examination Portal for Darul Huda Sibaq National Arts Fest '26. Enter your Admin-assigned chest code to begin your exam." />
+  <link rel="icon" type="image/png" href="Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+  <link rel="apple-touch-icon" href="Assett/DARUL HUDA SIBAQ LOGO_2026.png" />
+  
+  <!-- Modern Clean Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="exam-portal-body">
+  <!-- Desktop / Tablet Only Device Guard (Blocks Mobile & Small Screens < 768px) -->
+  <div class="device-guard-overlay" id="deviceGuardOverlay" role="alert">
+    <div class="device-guard-card">
+      <img src="Assett/DARUL HUDA SIBAQ LOGO_2026.png" alt="Sibaq '26" class="device-guard-logo" />
+      <div class="device-guard-icon">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </div>
+      <span class="device-guard-badge">DESKTOP &amp; TABLET ONLY</span>
+      <h1 class="device-guard-title">Unsupported Screen Size</h1>
+      <p class="device-guard-text">
+        This Online Examination Portal works only on <strong>Desktop</strong> and <strong>Tablet</strong> screens (minimum width <code>768px</code>). Please switch to a Desktop or Tablet device to access the portal.
+      </p>
+    </div>
+  </div>
+
+  <!-- Ambient background elements to softly reveal frosted glass refraction -->
+  <div class="ambient-glow glow-gold" aria-hidden="true"></div>
+  <div class="ambient-glow glow-terracotta" aria-hidden="true"></div>
+  <div class="ambient-glow glow-green" aria-hidden="true"></div>
+
+  <!-- Top Official Examination Header Bar -->
+  <header class="exam-topbar">
+    <div class="exam-topbar-inner">
+      <div class="exam-brand-group">
+        <img 
+          src="Assett/DARUL HUDA SIBAQ LOGO_2026.png" 
+          alt="Darul Huda Sibaq National Arts Fest '26" 
+          class="exam-topbar-logo"
+        />
+        <div class="exam-brand-divider"></div>
+        <div class="exam-brand-titles">
+          <span class="exam-sys-tag">SIBAQ '26 • CBT SYSTEM</span>
+          <strong class="exam-sys-name">Online Examination Portal</strong>
+        </div>
+      </div>
+
+      <div class="exam-topbar-right">
+        <div class="exam-server-pill">
+          <span class="server-dot"></span>
+          <span>Exam Server Active</span>
+        </div>
+        <a href="admin/index.html" class="invigilator-link" title="Admin & Invigilator Login">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Invigilator / Admin</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Examination Terminal Layout -->
+  <main class="exam-portal-container">
+    <div class="exam-terminal-grid">
+      
+      <!-- Left Panel: Examination Guidelines & Instructions -->
+      <section class="exam-info-panel glass-card">
+        <div class="exam-badge-row">
+          <span class="exam-mode-pill">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            OFFICIAL EXAM TERMINAL
+          </span>
+          <span class="exam-session-code">SESSION 2026</span>
+        </div>
+
+        <h1 class="exam-hero-title">Candidate Examination &amp; Assessment Portal</h1>
+        <p class="exam-hero-desc">
+          Authenticate with your Admin-registered <strong>Chest Number</strong> to view your allocated competition programs and start your examination.
+        </p>
+
+        <!-- Examination Instructions List -->
+        <div class="exam-instructions-box">
+          <div class="instructions-header">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>Candidate Instructions</span>
+          </div>
+
+          <ul class="instructions-list">
+            <li>
+              <span class="step-num">01</span>
+              <div>
+                <strong>Verified Chest Code Only</strong>
+                <p>Enter the exact Chest Code registered by the Admin (e.g., <code>A10</code>). Unregistered codes cannot access the exam.</p>
+              </div>
+            </li>
+            <li>
+              <span class="step-num">02</span>
+              <div>
+                <strong>Check Allocated Programs</strong>
+                <p>After login, verify your assigned Program Name and Category on your exam dashboard.</p>
+              </div>
+            </li>
+            <li>
+              <span class="step-num">03</span>
+              <div>
+                <strong>Click "Start" to Begin Exam</strong>
+                <p>Use the <strong>Start</strong> button next to your program to open the live exam question and submit your response.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Bottom Terminal Specs -->
+        <div class="exam-specs-strip">
+          <div class="spec-item">
+            <span class="spec-label">ACCESS MODE</span>
+            <span class="spec-val">Chest ID Verified</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">CATEGORIES</span>
+            <span class="spec-val">Bidaya • Ūlā • Thāniya • Thānawiyya • Āliya</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Candidate Authentication Card -->
+      <section class="exam-login-panel glass-card" id="cardContainer">
+        <div class="exam-login-header">
+          <div class="exam-key-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <h2 class="card-title">Candidate Sign-In</h2>
+          <p class="card-subtitle">Enter your official Chest Code to unlock your exam paper</p>
+        </div>
+
+        <!-- Alert Notification Banner -->
+        <div class="alert-banner" id="alertBanner" role="alert" aria-live="polite"></div>
+
+        <!-- Chest Number Form -->
+        <form class="auth-form" id="chestForm" novalidate>
+          <div class="form-group">
+            <div class="label-row">
+              <label for="chestNumber">Candidate Chest Code</label>
+              <span class="sample-tag" id="quickSample">Sample Code: <strong>A10</strong></span>
+            </div>
+            
+            <div class="input-wrapper exam-code-input-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                <line x1="7" y1="8" x2="17" y2="8"></line>
+                <line x1="7" y1="12" x2="13" y2="12"></line>
+              </svg>
+              <input 
+                type="text" 
+                id="chestNumber" 
+                name="chestNumber" 
+                value=""
+                placeholder="e.g. A10" 
+                required 
+                maxlength="12"
+                autocomplete="off"
+                autofocus
+              />
+            </div>
+            <span class="field-error" id="chestError"></span>
+          </div>
+
+          <div class="exam-declaration-box">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <span>I confirm that I am the registered candidate assigned to this Chest Code.</span>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="submit-btn exam-enter-btn" id="submitBtn">
+            <span class="btn-text">Verify &amp; Enter Exam Portal →</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+        </form>
+
+        <!-- Footer Navigation to Admin -->
+        <footer class="card-footer exam-card-footer">
+          <p>Exam Controller? <a href="admin/index.html">Open Admin Dashboard →</a></p>
+        </footer>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Firebase JS SDK v13.1.0 (App, Analytics, Auth with Anonymous Sign-In, Cloud Firestore DB) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6RKG_E0KF92rB0qBrBYDYEr6w6R4L74Q",
+      authDomain: "sibaqx.firebaseapp.com",
+      projectId: "sibaqx",
+      storageBucket: "sibaqx.firebasestorage.app",
+      messagingSenderId: "1098463628698",
+      appId: "1:1098463628698:web:557d8098376d9c9b087e23",
+      measurementId: "G-M6TGM154H0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch (e) {}
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.SibaqFirebase = {
+      app,
+      auth,
+      db,
+      signInAnonymously,
+      doc,
+      getDoc,
+      collection,
+      getDocs
+    };
+
+    signInAnonymously(auth).catch(() => {});
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

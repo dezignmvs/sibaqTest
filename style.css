@@ -1,0 +1,1042 @@
+/* ==========================================================================
+   Design Tokens & CSS Variables
+   Darul Huda Sibaq '26 Theme (Terracotta, Warm Gold, Forest Green, Slate Charcoal)
+   Light Theme Only • Minimal Glassmorphism (No heavy gradients, No heavy shadows)
+   ========================================================================== */
+:root {
+  /* Sibaq Official Brand Colors */
+  --brand-terracotta: #e14f26;
+  --brand-terracotta-hover: #c83e18;
+  --brand-gold: #f5a623;
+  --brand-gold-soft: rgba(245, 166, 35, 0.1);
+  --brand-green: #1b9a59;
+  --brand-charcoal: #1e242b;
+
+  /* Surface & Background */
+  --bg-primary: #fcfbfa;
+  --bg-card: rgba(255, 255, 255, 0.76);
+  --bg-input: rgba(30, 36, 43, 0.025);
+  --bg-input-focus: rgba(255, 255, 255, 0.95);
+
+  /* Hairline Borders & Glass Highlights */
+  --border-glass: rgba(30, 36, 43, 0.08);
+  --border-input: rgba(30, 36, 43, 0.11);
+  --border-input-focus: rgba(225, 79, 38, 0.45);
+
+  /* Typography Colors */
+  --text-main: #1e242b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+
+  /* Button Styles - Signature Sibaq Vermilion/Terracotta */
+  --btn-primary-bg: #e14f26;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #c83e18;
+
+  /* Ambient Glass Lights (Soft, delicate tints matching the logo colors) */
+  --ambient-gold: rgba(245, 166, 35, 0.08);
+  --ambient-terracotta: rgba(225, 79, 38, 0.06);
+  --ambient-green: rgba(27, 154, 89, 0.04);
+
+  /* Ultra-delicate elevation (Zero heavy muddy shadows) */
+  --shadow-subtle: 0 4px 24px rgba(30, 36, 43, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(225, 79, 38, 0.12);
+
+  /* UI feedback states */
+  --color-error: #dc2626;
+  --bg-error: rgba(220, 38, 38, 0.07);
+  --color-success: #1b9a59;
+  --bg-success: rgba(27, 154, 89, 0.08);
+
+  /* Dimensions & Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --transition-fast: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   Reset & Baseline
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   Subtle Ambient Elements (Gentle glow, non-intrusive)
+   ========================================================================== */
+.ambient-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-gold {
+  width: 440px;
+  height: 440px;
+  top: -100px;
+  left: calc(50% - 280px);
+  background: var(--ambient-gold);
+}
+
+.glow-terracotta {
+  width: 400px;
+  height: 400px;
+  bottom: -80px;
+  right: calc(50% - 240px);
+  background: var(--ambient-terracotta);
+}
+
+.glow-green {
+  width: 300px;
+  height: 300px;
+  top: 40%;
+  left: calc(50% + 160px);
+  background: var(--ambient-green);
+}
+
+/* ==========================================================================
+   Page Layout
+   ========================================================================== */
+.page-container {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+/* ==========================================================================
+   Minimal Glassmorphic Card
+   ========================================================================== */
+.glass-card {
+  width: 100%;
+  max-width: 410px;
+  background: var(--bg-card);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  padding: 36px 32px;
+  animation: cardFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ==========================================================================
+   Card Header & Brand Assets
+   ========================================================================== */
+.card-header {
+  text-align: center;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo-wrapper {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-logo {
+  max-height: 82px;
+  width: auto;
+  object-fit: contain;
+  transition: transform var(--transition-fast);
+}
+
+.brand-logo:hover {
+  transform: scale(1.02);
+}
+
+/* Theme Pill (Make It Your Own) */
+.theme-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.22);
+  border-radius: var(--radius-full);
+  padding: 3px 10px 3px 6px;
+  margin-bottom: 16px;
+  user-select: none;
+}
+
+.theme-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.theme-text {
+  font-size: 0.725rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--brand-terracotta);
+  text-transform: uppercase;
+}
+
+.card-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  font-size: 0.825rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Template Credentials Hint */
+.template-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  background: rgba(30, 36, 43, 0.025);
+  border: 1px dashed var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.template-hint strong {
+  color: var(--brand-charcoal);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Alert Banner
+   ========================================================================== */
+.alert-banner {
+  display: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  margin-bottom: 18px;
+  line-height: 1.4;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.alert-banner.error {
+  display: block;
+  background: var(--bg-error);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+}
+
+.alert-banner.success {
+  display: block;
+  background: var(--bg-success);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+/* ==========================================================================
+   Form Fields
+   ========================================================================== */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forgot-link {
+  font-size: 0.775rem;
+  color: var(--brand-terracotta);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity var(--transition-fast);
+}
+
+.forgot-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* Input Containers */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-dim);
+  pointer-events: none;
+  transition: color var(--transition-fast);
+}
+
+.input-wrapper input {
+  width: 100%;
+  height: 42px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  padding: 0 14px 0 40px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-main);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.input-wrapper input:hover {
+  border-color: rgba(30, 36, 43, 0.22);
+}
+
+.input-wrapper input:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--border-input-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+.input-wrapper input:focus + .input-icon,
+.input-wrapper:focus-within .input-icon {
+  color: var(--brand-terracotta);
+}
+
+.input-wrapper input::placeholder {
+  color: var(--text-dim);
+  font-size: 0.8125rem;
+}
+
+.input-wrapper.error input {
+  border-color: var(--color-error);
+}
+
+.sample-tag {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: opacity var(--transition-fast);
+}
+
+.sample-tag:hover {
+  opacity: 0.8;
+}
+
+.sample-tag strong {
+  color: var(--brand-terracotta);
+}
+
+.field-error {
+  font-size: 0.75rem;
+  color: var(--color-error);
+  display: none;
+}
+
+.field-error.active {
+  display: block;
+}
+
+/* Password Toggle Button */
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color var(--transition-fast);
+}
+
+.toggle-password:hover {
+  color: var(--brand-terracotta);
+}
+
+.toggle-password .eye-hide {
+  display: none;
+}
+
+.toggle-password.active .eye-show {
+  display: none;
+}
+
+.toggle-password.active .eye-hide {
+  display: block;
+}
+
+/* ==========================================================================
+   Form Meta (Remember Me Checkbox)
+   ========================================================================== */
+.form-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.custom-checkbox input {
+  display: none;
+}
+
+.checkmark {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-input);
+  background: var(--bg-input);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.custom-checkbox input:checked + .checkmark {
+  background: var(--brand-terracotta);
+  border-color: var(--brand-terracotta);
+}
+
+.custom-checkbox input:checked + .checkmark::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
+/* ==========================================================================
+   Submit Button with Spinner (Sibaq Terracotta)
+   ========================================================================== */
+.submit-btn {
+  width: 100%;
+  height: 42px;
+  margin-top: 6px;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.submit-btn:hover {
+  background: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+}
+
+.submit-btn .btn-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.submit-btn.loading .btn-text {
+  visibility: hidden;
+}
+
+.submit-btn.loading .btn-spinner {
+  display: block;
+  position: absolute;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+.card-footer {
+  margin-top: 26px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.card-footer a {
+  color: var(--brand-terracotta);
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.card-footer a:hover {
+  text-decoration: underline;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 440px) {
+  .glass-card {
+    padding: 30px 22px;
+    border-radius: 16px;
+  }
+}
+
+/* ==========================================================================
+   Online Examination Portal Layout & Terminal Interface (index.html)
+   ========================================================================== */
+.exam-portal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Top Exam Header Bar */
+.exam-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-bottom: 1px solid var(--border-glass);
+  padding: 12px 28px;
+}
+
+.exam-topbar-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exam-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.exam-topbar-logo {
+  height: 46px;
+  width: auto;
+  object-fit: contain;
+}
+
+.exam-brand-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(30, 36, 43, 0.12);
+}
+
+.exam-brand-titles {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.exam-sys-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--brand-terracotta);
+  text-transform: uppercase;
+}
+
+.exam-sys-name {
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.exam-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.exam-server-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: rgba(27, 154, 89, 0.08);
+  border: 1px solid rgba(27, 154, 89, 0.22);
+  border-radius: var(--radius-full);
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.server-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+}
+
+.invigilator-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(30, 36, 43, 0.12);
+  background: #ffffff;
+  color: var(--text-main);
+  font-size: 0.775rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.invigilator-link:hover {
+  border-color: var(--brand-terracotta);
+  color: var(--brand-terracotta);
+}
+
+/* Main Terminal Container */
+.exam-portal-container {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+}
+
+.exam-terminal-grid {
+  width: 100%;
+  max-width: 980px;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.exam-info-panel,
+.exam-login-panel {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.exam-info-panel {
+  padding: 34px 34px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.exam-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.exam-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--radius-full);
+  background: rgba(225, 79, 38, 0.08);
+  border: 1px solid rgba(225, 79, 38, 0.22);
+  color: var(--brand-terracotta);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.exam-session-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(30, 36, 43, 0.04);
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border-glass);
+}
+
+.exam-hero-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.025em;
+  line-height: 1.22;
+  margin-bottom: 10px;
+}
+
+.exam-hero-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+/* Instructions Box */
+.exam-instructions-box {
+  background: #ffffff;
+  border: 1px solid rgba(30, 36, 43, 0.09);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  box-shadow: 0 2px 10px rgba(30, 36, 43, 0.02);
+}
+
+.instructions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.775rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(30, 36, 43, 0.06);
+}
+
+.instructions-header svg {
+  color: var(--brand-terracotta);
+}
+
+.instructions-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.instructions-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.step-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--brand-terracotta);
+  background: rgba(225, 79, 38, 0.08);
+  border: 1px solid rgba(225, 79, 38, 0.2);
+  border-radius: 6px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.instructions-list strong {
+  display: block;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+
+.instructions-list p {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.instructions-list code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(30, 36, 43, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--brand-charcoal);
+}
+
+.exam-specs-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(30, 36, 43, 0.12);
+  flex-wrap: wrap;
+}
+
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spec-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.spec-val {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* Right Login Card */
+.exam-login-panel {
+  padding: 34px 32px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(30, 36, 43, 0.1);
+}
+
+.exam-login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.exam-key-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(225, 79, 38, 0.09);
+  border: 1px solid rgba(225, 79, 38, 0.22);
+  color: var(--brand-terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.exam-code-input-wrap input {
+  height: 48px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: #ffffff;
+  border: 1.5px solid rgba(30, 36, 43, 0.16);
+}
+
+.exam-code-input-wrap input::placeholder {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+.exam-declaration-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  background: rgba(27, 154, 89, 0.05);
+  border: 1px solid rgba(27, 154, 89, 0.18);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.exam-declaration-box svg {
+  color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.exam-enter-btn {
+  height: 46px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(225, 79, 38, 0.2);
+}
+
+.exam-card-footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(30, 36, 43, 0.07);
+}
+
+@media (max-width: 840px) {
+  .exam-terminal-grid {
+    grid-template-columns: 1fr;
+  }
+  .exam-topbar {
+    padding: 12px 16px;
+  }
+  .exam-server-pill {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Desktop & Tablet Only Guard (Blocks Screens Smaller Than 768px)
+   ========================================================================== */
+.device-guard-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: radial-gradient(circle at top, #fff7ed 0%, #f8fafc 60%, #f1f5f9 100%);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.device-guard-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px 28px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(30, 36, 43, 0.1);
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-guard-logo {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+
+.device-guard-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(224, 104, 75, 0.12);
+  color: var(--brand-terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-guard-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(224, 104, 75, 0.12);
+  color: var(--brand-terracotta);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.device-guard-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.device-guard-text {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow: hidden !important;
+    height: 100vh !important;
+  }
+
+  body > *:not(.device-guard-overlay):not(script) {
+    display: none !important;
+  }
+
+  .device-guard-overlay {
+    display: flex !important;
+  }
+}
