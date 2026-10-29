@@ -4,6 +4,21 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Shared-link isolation guard: if this browser session was opened via a shared Question/Valuation link,
+  // prevent navigating to Admin Sign In and redirect straight back to the locked shared link.
+  try {
+    const rawTabLock = sessionStorage.getItem('sibaq_shared_link_lock');
+    if (rawTabLock) {
+      const parsedLock = JSON.parse(rawTabLock);
+      if (parsedLock && parsedLock.lockedUrl) {
+        window.location.replace(parsedLock.lockedUrl);
+        return;
+      }
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+
   // DOM Elements
   const authForm = document.getElementById('authForm');
   const submitBtn = document.getElementById('submitBtn');
@@ -128,6 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const normalizedEmail = emailVal.toLowerCase();
         // Match template credentials
         if (normalizedEmail === 'zuhail@sibaq.com' && passwordVal === '340340') {
+          try {
+            sessionStorage.removeItem('sibaq_shared_link_lock');
+            localStorage.removeItem('sibaq_shared_link_lock');
+          } catch (e) {
+            // ignore storage errors
+          }
           // Save admin session
           sessionStorage.setItem('sibaq_auth', JSON.stringify({
             name: 'Zuhail',

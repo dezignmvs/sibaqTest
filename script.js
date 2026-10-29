@@ -5,6 +5,21 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Shared-link isolation guard: if this browser session is locked to a shared Question/Valuation link,
+  // block access to the participant portal and redirect back to the shared link.
+  try {
+    const rawLock = sessionStorage.getItem('sibaq_shared_link_lock') || (!sessionStorage.getItem('sibaq_auth') ? localStorage.getItem('sibaq_shared_link_lock') : null);
+    if (rawLock) {
+      const parsedLock = JSON.parse(rawLock);
+      if (parsedLock && parsedLock.lockedUrl) {
+        window.location.replace(parsedLock.lockedUrl);
+        return;
+      }
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+
   const chestForm = document.getElementById('chestForm');
   const chestInput = document.getElementById('chestNumber');
   const chestError = document.getElementById('chestError');

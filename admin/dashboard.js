@@ -18,10 +18,113 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterBtns = document.querySelectorAll('#programsView .filter-btn');
 
   const urlParams = new URLSearchParams(window.location.search);
+
+  function computeShareSignature(mode, programName, category) {
+    const raw = `sibaq26_lock::${String(mode || '').trim().toLowerCase()}::${String(programName || '').trim().toLowerCase()}::${String(category || 'General').trim().toLowerCase()}`;
+    let h1 = 0x811c9dc5;
+    for (let i = 0; i < raw.length; i++) {
+      h1 ^= raw.charCodeAt(i);
+      h1 = Math.imul(h1, 0x01000193) >>> 0;
+    }
+    return h1.toString(36);
+  }
+
+  // Enforce strict Shared-Link-Only isolation & Admin Auth Guard
+  const rawTabLock = sessionStorage.getItem('sibaq_shared_link_lock');
+  let activeTabShareLock = null;
+  if (rawTabLock) {
+    try {
+      activeTabShareLock = JSON.parse(rawTabLock);
+    } catch (e) {
+      activeTabShareLock = null;
+    }
+  }
+
+  const reqShareMode =
+    urlParams.get('shareExam') === '1'
+      ? 'exam'
+      : urlParams.get('shareValuation') === '1'
+      ? 'valuation'
+      : '';
+  const reqShareProg = (urlParams.get('program') || '').trim();
+  const reqShareCat = (urlParams.get('category') || 'General').trim();
+  const reqShareSig = (urlParams.get('sig') || '').trim();
+
+  // If this tab is already locked to a shared link, block any attempt to visit dashboard.html without params or switch program/mode
+  if (activeTabShareLock && activeTabShareLock.lockedUrl) {
+    const isSameLockTarget =
+      reqShareMode === activeTabShareLock.mode &&
+      reqShareProg.toLowerCase() === String(activeTabShareLock.program || '').toLowerCase() &&
+      reqShareCat.toLowerCase() === String(activeTabShareLock.category || 'General').toLowerCase();
+
+    if (!isSameLockTarget) {
+      window.location.replace(activeTabShareLock.lockedUrl);
+      return;
+    }
+  }
+
+  // Verify signature if provided on shared link
+  if (reqShareMode && reqShareProg) {
+    const expectedSig = computeShareSignature(reqShareMode, reqShareProg, reqShareCat);
+    if (reqShareSig && reqShareSig !== expectedSig) {
+      if (activeTabShareLock && activeTabShareLock.lockedUrl) {
+        window.location.replace(activeTabShareLock.lockedUrl);
+        return;
+      }
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f8fafc;font-family:'Plus Jakarta Sans',sans-serif;">
+          <div style="max-width:440px;width:100%;background:#fff;border:1px solid rgba(220,38,38,0.25);border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 16px 40px rgba(15,23,42,0.08);">
+            <div style="width:48px;height:48px;border-radius:12px;background:rgba(220,38,38,0.1);color:#dc2626;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-weight:800;font-size:1.25rem;">!</div>
+            <h1 style="font-size:1.15rem;font-weight:700;color:#0f172a;margin:0 0 8px;">Restricted Shared Link</h1>
+            <p style="font-size:0.85rem;color:#64748b;line-height:1.55;margin:0;">This shared link is restricted to its original program only and cannot be modified to access other pages.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Canonicalize URL with signature and lock this tab/browser to ONLY this shared link
+    const canonicalParams = new URLSearchParams();
+    if (reqShareMode === 'exam') canonicalParams.set('shareExam', '1');
+    else canonicalParams.set('shareValuation', '1');
+    canonicalParams.set('program', reqShareProg);
+    canonicalParams.set('category', reqShareCat);
+    canonicalParams.set('sig', expectedSig);
+    const canonicalLockedUrl = `${window.location.origin}${window.location.pathname}?${canonicalParams.toString()}`;
+
+    const lockPayload = {
+      mode: reqShareMode,
+      program: reqShareProg,
+      category: reqShareCat,
+      sig: expectedSig,
+      lockedUrl: canonicalLockedUrl
+    };
+    sessionStorage.setItem('sibaq_shared_link_lock', JSON.stringify(lockPayload));
+    localStorage.setItem('sibaq_shared_link_lock', JSON.stringify(lockPayload));
+    sessionStorage.removeItem('sibaq_auth');
+  } else {
+    // Not a shared link URL: require full Admin Authentication, or redirect back to active shared link lock
+    const hasAdminAuth = Boolean(sessionStorage.getItem('sibaq_auth'));
+    if (!hasAdminAuth) {
+      const savedLocalLock = localStorage.getItem('sibaq_shared_link_lock');
+      if (savedLocalLock) {
+        try {
+          const parsedLock = JSON.parse(savedLocalLock);
+          if (parsedLock && parsedLock.lockedUrl) {
+            window.location.replace(parsedLock.lockedUrl);
+            return;
+          }
+        } catch (e) {}
+      }
+      window.location.replace('index.html');
+      return;
+    }
+  }
+
   const isSharedExamStandaloneMode =
     urlParams.get('shareExam') === '1' && Boolean(urlParams.get('program'));
   const isSharedValuationStandaloneMode =
-    urlParams.get('shareValuation') === '1';
+    urlParams.get('shareValuation') === '1' && Boolean(urlParams.get('program'));
   if (isSharedExamStandaloneMode) {
     document.body.classList.add('shared-exam-builder-mode');
   } else if (isSharedValuationStandaloneMode) {
@@ -195,13 +298,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const programsList = document.getElementById('programsList');
   const addAnotherProgramBtn = document.getElementById('addAnotherProgramBtn');
   const submitRecordBtn = document.getElementById('submitRecordBtn');
+  const modalTitleEl = document.getElementById('modalTitle');
+
+  let editingRecordId = null;
 
   // Modal Open & Close Helpers
   function openAddRecordModal() {
     if (!addRecordModal) return;
+    resetModalForm();
     addRecordModal.classList.add('open');
     addRecordModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function openEditRecordModal(rec) {
+    if (!addRecordModal || !rec) return;
     resetModalForm();
+    editingRecordId = rec.id;
+
+    if (modalTitleEl) modalTitleEl.textContent = `Edit Record (${rec.id})`;
+    if (addAnotherProgramBtn) addAnotherProgramBtn.style.display = 'none';
+    if (submitRecordBtn) {
+      const btnText = submitRecordBtn.querySelector('.btn-text');
+      if (btnText) btnText.textContent = 'Save Changes';
+    }
+
+    // Pre-select Category radio
+    if (rec.category) {
+      categoryRadios.forEach((radio) => {
+        radio.checked = radio.value.toLowerCase() === String(rec.category).trim().toLowerCase();
+      });
+    }
+
+    // Populate first program card with program name and candidate chip
+    const firstCard = programsList ? programsList.querySelector('.program-entry-card') : null;
+    if (firstCard) {
+      const nameInput = firstCard.querySelector('.program-name-input');
+      if (nameInput) nameInput.value = rec.programName || '';
+
+      const chipsList = firstCard.querySelector('.selected-students-list');
+      const isZeroCand =
+        !rec.candidate ||
+        rec.candidate === '0 Candidate' ||
+        rec.candidate.toLowerCase().includes('0 candidate') ||
+        rec.candidate.toLowerCase().includes('unassigned');
+
+      if (!isZeroCand && chipsList) {
+        const rawCand = String(rec.candidate || '').trim();
+        const match = rawCand.match(/^(.*?)\s*\(#([^)]+)\)\s*$/);
+        const parsedName = match ? match[1].trim() : rawCand;
+        const parsedChest = String(rec.chestNo || (match ? match[2] : '')).replace(/^#/, '').trim();
+        if (parsedName) {
+          addStudentChip(chipsList, { chestNo: parsedChest, name: parsedName });
+        }
+      }
+    }
+
+    addRecordModal.classList.add('open');
+    addRecordModal.setAttribute('aria-hidden', 'false');
   }
 
   function closeAddRecordModal() {
@@ -212,7 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resetModalForm() {
+    editingRecordId = null;
     if (addRecordForm) addRecordForm.reset();
+    if (modalTitleEl) modalTitleEl.textContent = 'Add Record';
+    if (addAnotherProgramBtn) addAnotherProgramBtn.style.display = '';
+    if (submitRecordBtn) {
+      const btnText = submitRecordBtn.querySelector('.btn-text');
+      if (btnText) btnText.textContent = 'Submit';
+    }
     if (recordCategoryError) recordCategoryError.textContent = '';
     if (categoryRadioGroup) categoryRadioGroup.classList.remove('error');
     if (programsList) {
@@ -1166,6 +1326,99 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const existingRecords = await getAllRecordsFromDB();
+
+        // Handle Edit Existing Record Mode
+        if (editingRecordId) {
+          const targetRec = existingRecords.find((r) => String(r.id) === String(editingRecordId)) || {
+            id: editingRecordId,
+            createdAt: Date.now()
+          };
+          const prog = programsData[0];
+          const oldKey =
+            targetRec.programName && targetRec.category
+              ? makeProgramExamKey(targetRec.programName, targetRec.category)
+              : '';
+          const newKey = makeProgramExamKey(prog.programName, category);
+
+          // Copy local exam / schedule metadata if program name or category was renamed
+          if (oldKey && oldKey !== newKey) {
+            const savedExams = getSavedExamsMap();
+            if (savedExams[oldKey] && !savedExams[newKey]) {
+              savedExams[newKey] = { ...savedExams[oldKey] };
+              localStorage.setItem('sibaq_exams', JSON.stringify(savedExams));
+            }
+            const schedules = getProgramSchedulesMap();
+            if (schedules[oldKey] && !schedules[newKey]) {
+              schedules[newKey] = { ...schedules[oldKey] };
+              saveProgramSchedulesMap(schedules);
+            }
+          }
+
+          let updatedPrimaryRecord;
+          if (prog.students.length === 0) {
+            updatedPrimaryRecord = {
+              ...targetRec,
+              category,
+              programName: prog.programName,
+              candidate: '0 Candidate',
+              chestNo: '',
+              updatedAt: Date.now()
+            };
+          } else {
+            const firstStd = prog.students[0];
+            const firstCandLabel = firstStd.chestNo ? `${firstStd.name} (#${firstStd.chestNo})` : firstStd.name;
+            updatedPrimaryRecord = {
+              ...targetRec,
+              category,
+              programName: prog.programName,
+              candidate: firstCandLabel,
+              chestNo: firstStd.chestNo || '',
+              updatedAt: Date.now()
+            };
+          }
+
+          await saveRecordToDB(updatedPrimaryRecord);
+
+          // If additional students were added during edit, create records for them too
+          if (prog.students.length > 1) {
+            let maxNum = 0;
+            existingRecords.forEach((r) => {
+              const match = r.id && r.id.match(/^SBQ-(\d+)$/i);
+              if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) maxNum = num;
+              }
+            });
+            if (maxNum === 0) maxNum = existingRecords.length;
+
+            for (let s = 1; s < prog.students.length; s++) {
+              maxNum++;
+              const std = prog.students[s];
+              const candLabel = std.chestNo ? `${std.name} (#${std.chestNo})` : std.name;
+              const extraRec = {
+                ...targetRec,
+                id: `SBQ-${String(maxNum).padStart(2, '0')}`,
+                category,
+                programName: prog.programName,
+                candidate: candLabel,
+                chestNo: std.chestNo || '',
+                createdAt: Date.now() + s
+              };
+              await saveRecordToDB(extraRec);
+            }
+          }
+
+          const editedId = editingRecordId;
+          await loadAndRenderTable();
+          await loadAndRenderQuestionTable();
+          if (typeof loadAndRenderValuationTable === 'function') await loadAndRenderValuationTable();
+          if (typeof loadAndRenderScheduledPrograms === 'function') await loadAndRenderScheduledPrograms();
+
+          closeAddRecordModal();
+          showToast(`Updated record ${editedId} ("${prog.programName}")!`);
+          return;
+        }
+
         let maxNum = 0;
         existingRecords.forEach(r => {
           const match = r.id && r.id.match(/^SBQ-(\d+)$/i);
@@ -1304,8 +1557,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (editBtn) {
         const row = editBtn.closest('tr');
         if (row) {
-          const programTitle = row.querySelector('.program-title')?.textContent || 'Record';
-          showToast(`Editing "${programTitle}" (Demo mode)`);
+          const recordId = row.getAttribute('data-id') || row.querySelector('.id-tag')?.textContent?.trim();
+          const allRecs = await getAllRecordsFromDB();
+          const targetRec = allRecs.find((r) => String(r.id) === String(recordId));
+          if (targetRec) {
+            openEditRecordModal(targetRec);
+          } else {
+            const catText = row.querySelector('.category-tag')?.textContent?.trim() || '';
+            const progText = row.querySelector('.program-title')?.textContent?.trim() || '';
+            const candText = row.querySelector('.candidate-name')?.textContent?.trim() || '0 Candidate';
+            openEditRecordModal({
+              id: recordId || 'SBQ-01',
+              category: catText,
+              programName: progText,
+              candidate: candText
+            });
+          }
         }
       }
     });
@@ -2355,23 +2622,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function buildShareExamUrl(prog) {
     const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const progName = prog.programName || '';
+    const catName = prog.category || 'General';
     const params = new URLSearchParams();
     params.set('shareExam', '1');
-    params.set('program', prog.programName || '');
-    params.set('category', prog.category || 'General');
+    params.set('program', progName);
+    params.set('category', catName);
+    params.set('sig', computeShareSignature('exam', progName, catName));
     return `${baseUrl}?${params.toString()}`;
   }
 
   function buildShareValuationUrl(prog) {
     const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const progName = prog && prog.programName && prog.programName !== 'all' ? prog.programName : 'all';
+    const catName = progName === 'all' ? 'General' : (prog.category || 'General');
     const params = new URLSearchParams();
     params.set('shareValuation', '1');
-    if (prog && prog.programName && prog.programName !== 'all') {
-      params.set('program', prog.programName);
-      params.set('category', prog.category || 'General');
-    } else {
-      params.set('program', 'all');
-    }
+    params.set('program', progName);
+    params.set('category', catName);
+    params.set('sig', computeShareSignature('valuation', progName, catName));
     return `${baseUrl}?${params.toString()}`;
   }
 
@@ -2505,6 +2774,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.classList.add('shared-exam-builder-mode');
     document.title = `${progNameParam} (${catParam}) — Question Maker`;
+
+    // Physically remove all other Admin views, sidebar, breadcrumbs, and Share/Back buttons from DOM
+    [
+      '#adminSidebar',
+      '.breadcrumb-container',
+      '#programsView',
+      '#candidatesView',
+      '#questionView',
+      '#valuationView',
+      '#valuationSheetView',
+      '#settingsView',
+      '#addRecordModal',
+      '#shareExamModal',
+      '#shareExamLinkBtn',
+      '#examBuilderBackBtn',
+      '#setExamPageView .builder-topbar-divider'
+    ].forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => el.remove());
+    });
 
     const key = makeProgramExamKey(progNameParam, catParam);
     const savedExams = getSavedExamsMap();
@@ -2642,6 +2930,644 @@ document.addEventListener('DOMContentLoaded', () => {
       addNewQuestionCardToBuilder(qType);
     });
   });
+
+  // ==========================================================================
+  // Bulk Upload Questions (JSON File / ChatGPT JSON Import)
+  // ==========================================================================
+  const bulkUploadQuestionsTopBtn = document.getElementById('bulkUploadQuestionsTopBtn');
+  const bulkUploadQuestionsBottomBtn = document.getElementById('bulkUploadQuestionsBottomBtn');
+  const bulkUploadQuestionsModal = document.getElementById('bulkUploadQuestionsModal');
+  const bulkUploadModalCloseX = document.getElementById('bulkUploadModalCloseX');
+  const bulkModalCancelBtn = document.getElementById('bulkModalCancelBtn');
+  const bulkQuestionTypeSelect = document.getElementById('bulkQuestionTypeSelect');
+  const bulkImportModeSelect = document.getElementById('bulkImportModeSelect');
+  const bulkMultiTypeChips = document.getElementById('bulkMultiTypeChips');
+  const bulkSelectAllTypesBtn = document.getElementById('bulkSelectAllTypesBtn');
+  const bulkJsonDropzone = document.getElementById('bulkJsonDropzone');
+  const bulkJsonFileInput = document.getElementById('bulkJsonFileInput');
+  const bulkJsonFileNameText = document.getElementById('bulkJsonFileNameText');
+  const bulkJsonFileSubText = document.getElementById('bulkJsonFileSubText');
+  const bulkJsonTextarea = document.getElementById('bulkJsonTextarea');
+  const bulkJsonPreviewBadge = document.getElementById('bulkJsonPreviewBadge');
+  const bulkJsonError = document.getElementById('bulkJsonError');
+  const copyBulkPromptBtn = document.getElementById('copyBulkPromptBtn');
+  const confirmBulkImportBtn = document.getElementById('confirmBulkImportBtn');
+
+  let userChangedBulkTypeExplicitly = false;
+
+  const BULK_TYPE_LABELS = {
+    mcq: 'MCQ',
+    match: 'Match the Following',
+    checkbox: 'Checkbox',
+    radio: 'Radio',
+    short_answer: 'Short Answer',
+    long_answer: 'Long Answer',
+    image_identify: 'Picture / Identify',
+    true_false: 'True / False',
+    dropdown: 'Dropdown',
+    section: 'Section (Read Only)'
+  };
+
+  const BULK_SAMPLE_OBJECTS = {
+    section: {
+      type: 'section',
+      questionText: 'Part A: Read the Passage Carefully',
+      sectionContent: 'Read the following passage carefully before answering the next questions...',
+      points: 0,
+      required: false
+    },
+    mcq: {
+      type: 'mcq',
+      questionText: 'What is the capital of India?',
+      options: ['Mumbai', 'New Delhi', 'Kolkata', 'Chennai'],
+      correctAnswer: 'New Delhi',
+      points: 1,
+      required: true
+    },
+    match: {
+      type: 'match',
+      questionText: 'Match the authors with their famous works:',
+      pairs: [
+        { left: 'Ibn Khaldun', right: 'Muqaddimah' },
+        { left: 'Al-Ghazali', right: 'Ihya Ulum al-Din' }
+      ],
+      points: 2,
+      required: true
+    },
+    checkbox: {
+      type: 'checkbox',
+      questionText: 'Which of the following are programming languages?',
+      options: ['Python', 'HTML', 'JavaScript', 'CSS'],
+      correctOptions: ['Python', 'JavaScript'],
+      points: 2,
+      required: true
+    },
+    radio: {
+      type: 'radio',
+      questionText: 'Choose the correct single option:',
+      options: ['Option A', 'Option B', 'Option C'],
+      correctAnswer: 'Option A',
+      points: 1,
+      required: true
+    },
+    short_answer: {
+      type: 'short_answer',
+      questionText: "Who wrote the book 'Muqaddimah'?",
+      answerKey: 'Ibn Khaldun',
+      points: 2,
+      required: true
+    },
+    long_answer: {
+      type: 'long_answer',
+      questionText: 'Explain the significance and styles of Islamic calligraphy.',
+      answerKey: 'Include Kufic, Naskh, Thuluth, and architectural uses.',
+      points: 5,
+      required: true
+    },
+    image_identify: {
+      type: 'image_identify',
+      questionText: 'Identify the historical monument shown in the picture:',
+      imageUrl: 'https://res.cloudinary.com/da6fjyirm/image/upload/sample.jpg',
+      answerKey: 'Al-Aqsa Mosque',
+      points: 2,
+      required: true
+    },
+    true_false: {
+      type: 'true_false',
+      questionText: 'The sun rises in the East.',
+      options: ['True', 'False'],
+      correctAnswer: 'True',
+      points: 1,
+      required: true
+    },
+    dropdown: {
+      type: 'dropdown',
+      questionText: 'Select the correct festival category:',
+      options: ['Bidaya', 'Ūlā', 'Thāniya', 'Thānawiyya', 'Āliya'],
+      correctAnswer: 'Āliya',
+      points: 1,
+      required: true
+    }
+  };
+
+  function getSelectedBulkTypesArray() {
+    if (!bulkMultiTypeChips) return ['mcq'];
+    const activeChips = Array.from(bulkMultiTypeChips.querySelectorAll('.bulk-type-chip.active'));
+    const types = activeChips.map((c) => c.getAttribute('data-btype')).filter(Boolean);
+    return types.length > 0 ? types : ['mcq'];
+  }
+
+  function syncBulkTypeChipLabels() {
+    if (!bulkMultiTypeChips) return;
+    bulkMultiTypeChips.querySelectorAll('.bulk-type-chip').forEach((chip) => {
+      const t = chip.getAttribute('data-btype') || '';
+      const baseLabel = BULK_TYPE_LABELS[t] || t;
+      const isActive = chip.classList.contains('active');
+      chip.textContent = isActive ? `✓ ${baseLabel}` : baseLabel;
+    });
+  }
+
+  function buildDynamicChatGptPrompt() {
+    const selectedTypes = getSelectedBulkTypesArray();
+    const typesListStr = selectedTypes.map((t) => `"${t}"`).join(', ');
+    return `You are an exam data converter for the Sibaq '26 Exam Portal.
+Convert the raw bulk questions/text I provide below into a single valid JSON array containing multiple question types.
+
+OUTPUT RULES:
+1. Output ONLY raw, valid JSON (an array [ ... ]). Do NOT include extra commentary outside the JSON block.
+2. Preferred / Selected "type" values for this exam: ${typesListStr}
+   (All supported types: "mcq", "checkbox", "radio", "dropdown", "true_false", "match", "short_answer", "long_answer", "image_identify", "section").
+3. Schema per item type in the same JSON array:
+- "section" (reading passage / instructions with no question): { "type": "section", "questionText": "Part A: Reading Section", "sectionContent": "Passage text...", "points": 0, "required": false }
+- "mcq" / "radio" / "dropdown": { "type": "mcq", "questionText": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B", "points": 1, "required": true }
+- "checkbox" (multiple correct): { "type": "checkbox", "questionText": "...", "options": ["Opt 1", "Opt 2", "Opt 3"], "correctOptions": ["Opt 1", "Opt 3"], "points": 2, "required": true }
+- "match" (match the following): { "type": "match", "questionText": "...", "pairs": [{ "left": "Item A", "right": "Match 1" }, { "left": "Item B", "right": "Match 2" }], "points": 2, "required": true }
+- "true_false": { "type": "true_false", "questionText": "...", "options": ["True", "False"], "correctAnswer": "True", "points": 1, "required": true }
+- "short_answer" / "long_answer" / "image_identify": { "type": "short_answer", "questionText": "...", "answerKey": "...", "points": 1, "required": true }
+
+Strip question numbers (like "1.", "Q1)") and option prefixes (like "A)", "(a)") so only clean text remains.
+
+Now convert the following bulk questions (which may include multiple question types) into a single JSON array:
+
+`;
+  }
+
+  function getSampleJsonForType(type) {
+    if (type === 'auto') {
+      const selectedTypes = getSelectedBulkTypesArray();
+      const sampleArr = selectedTypes.map((t) => BULK_SAMPLE_OBJECTS[t] || BULK_SAMPLE_OBJECTS.mcq);
+      return JSON.stringify(sampleArr, null, 2);
+    }
+    const singleObj = BULK_SAMPLE_OBJECTS[type] || BULK_SAMPLE_OBJECTS.mcq;
+    return JSON.stringify([singleObj], null, 2);
+  }
+
+  function normalizeQuestionTypeString(rawType) {
+    if (!rawType) return '';
+    const t = String(rawType).trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const map = {
+      mcq: 'mcq',
+      multiple_choice: 'mcq',
+      multiplechoice: 'mcq',
+      choice: 'mcq',
+      radio: 'radio',
+      radio_buttons: 'radio',
+      single_choice: 'radio',
+      checkbox: 'checkbox',
+      checkboxes: 'checkbox',
+      multiple_select: 'checkbox',
+      multi_select: 'checkbox',
+      match: 'match',
+      matching: 'match',
+      match_the_following: 'match',
+      short_answer: 'short_answer',
+      short: 'short_answer',
+      text: 'short_answer',
+      long_answer: 'long_answer',
+      long: 'long_answer',
+      paragraph: 'long_answer',
+      essay: 'long_answer',
+      image_identify: 'image_identify',
+      image: 'image_identify',
+      picture: 'image_identify',
+      identify: 'image_identify',
+      dropdown: 'dropdown',
+      select: 'dropdown',
+      true_false: 'true_false',
+      boolean: 'true_false',
+      tf: 'true_false',
+      section: 'section',
+      passage: 'section',
+      reading: 'section',
+      header: 'section'
+    };
+    return map[t] || '';
+  }
+
+  function parseAndNormalizeBulkJson(rawText) {
+    const cleaned = String(rawText || '')
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    if (!cleaned) {
+      throw new Error('Please upload a .json file or paste JSON content.');
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      throw new Error(`Invalid JSON syntax: ${err.message}`);
+    }
+
+    let rawArray = [];
+    if (Array.isArray(parsed)) {
+      rawArray = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.questions)) rawArray = parsed.questions;
+      else if (Array.isArray(parsed.examQuestions)) rawArray = parsed.examQuestions;
+      else if (Array.isArray(parsed.items)) rawArray = parsed.items;
+      else if (Array.isArray(parsed.data)) rawArray = parsed.data;
+      else rawArray = [parsed];
+    }
+
+    if (rawArray.length === 0) {
+      throw new Error('No question objects found in the JSON.');
+    }
+
+    const selectedType = bulkQuestionTypeSelect ? bulkQuestionTypeSelect.value : 'mcq';
+
+    return rawArray.map((item, idx) => {
+      if (!item || typeof item !== 'object') {
+        throw new Error(`Item #${idx + 1} is not a valid JSON object.`);
+      }
+
+      const explicitType = normalizeQuestionTypeString(item.type || item.questionType);
+      let inferredType = explicitType;
+      if (!inferredType) {
+        if (item.pairs || item.matches) inferredType = 'match';
+        else if (Array.isArray(item.correctOptions) || Array.isArray(item.answers)) inferredType = 'checkbox';
+        else if (item.sectionContent || item.passage) inferredType = 'section';
+        else if (item.imageUrl || item.image) inferredType = 'image_identify';
+        else if (Array.isArray(item.options) || Array.isArray(item.choices)) inferredType = 'mcq';
+        else inferredType = 'short_answer';
+      }
+
+      let finalType = inferredType;
+      if (selectedType !== 'auto') {
+        if (userChangedBulkTypeExplicitly || !explicitType) {
+          finalType = selectedType;
+        }
+      }
+
+      const isSection = finalType === 'section';
+      const questionText = String(
+        item.questionText || item.question || item.prompt || item.title || item.q || ''
+      ).trim();
+
+      if (!questionText) {
+        throw new Error(`Question #${idx + 1} is missing "questionText" (or "question").`);
+      }
+
+      // Normalize options
+      let options = [];
+      const rawOpts = item.options || item.choices;
+      if (Array.isArray(rawOpts)) {
+        options = rawOpts.map((o) => String(o).trim()).filter(Boolean);
+      } else if (rawOpts && typeof rawOpts === 'object') {
+        options = Object.values(rawOpts).map((o) => String(o).trim()).filter(Boolean);
+      }
+      if (finalType === 'true_false') {
+        options = ['True', 'False'];
+      } else if (
+        (finalType === 'mcq' || finalType === 'radio' || finalType === 'checkbox' || finalType === 'dropdown') &&
+        options.length === 0
+      ) {
+        options = ['Option 1', 'Option 2'];
+      }
+
+      // Normalize correctAnswer (resolving "A"/"B"/"C"/"D" letter keys if needed)
+      let correctAnswer = String(
+        item.correctAnswer ?? item.answer ?? item.correct ?? item.answerKey ?? ''
+      ).trim();
+
+      if (
+        correctAnswer &&
+        options.length > 0 &&
+        !options.includes(correctAnswer) &&
+        /^[A-Ha-h]$/.test(correctAnswer)
+      ) {
+        const letterIdx = correctAnswer.toUpperCase().charCodeAt(0) - 65;
+        if (options[letterIdx] !== undefined) {
+          correctAnswer = options[letterIdx];
+        }
+      }
+
+      // Normalize correctOptions for checkbox
+      let correctOptions = [];
+      const rawCorrectOpts = item.correctOptions || item.answers || item.correctAnswers;
+      if (Array.isArray(rawCorrectOpts)) {
+        correctOptions = rawCorrectOpts.map((c) => {
+          const s = String(c).trim();
+          if (options.length > 0 && !options.includes(s) && /^[A-Ha-h]$/.test(s)) {
+            const lIdx = s.toUpperCase().charCodeAt(0) - 65;
+            if (options[lIdx] !== undefined) return options[lIdx];
+          }
+          return s;
+        }).filter(Boolean);
+      } else if (finalType === 'checkbox' && correctAnswer) {
+        correctOptions = [correctAnswer];
+      }
+
+      // Normalize pairs for Match the Following
+      let pairs = [];
+      const rawPairs = item.pairs || item.matches;
+      if (Array.isArray(rawPairs)) {
+        pairs = rawPairs
+          .map((p) => ({
+            left: String(p.left ?? p.premise ?? p.columnA ?? p.a ?? '').trim(),
+            right: String(p.right ?? p.response ?? p.columnB ?? p.b ?? '').trim()
+          }))
+          .filter((p) => p.left || p.right);
+      } else if (rawPairs && typeof rawPairs === 'object') {
+        pairs = Object.entries(rawPairs).map(([k, v]) => ({
+          left: String(k).trim(),
+          right: String(v).trim()
+        }));
+      }
+      if (finalType === 'match' && pairs.length === 0) {
+        pairs = [
+          { left: 'Item A', right: 'Match 1' },
+          { left: 'Item B', right: 'Match 2' }
+        ];
+      }
+
+      const rawPts = parseFloat(item.points ?? item.marks ?? item.score);
+      const points = isSection ? 0 : (!isNaN(rawPts) && rawPts >= 0 ? rawPts : 1);
+      const required = isSection ? false : (item.required !== undefined ? Boolean(item.required) : true);
+      const sectionContent = String(
+        item.sectionContent || item.passage || item.description || item.content || ''
+      ).trim();
+      const answerKey = String(item.answerKey ?? item.correctAnswer ?? item.answer ?? '').trim();
+
+      return {
+        id: `q_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+        type: finalType,
+        questionText,
+        sectionContent,
+        imageUrl: String(item.imageUrl || item.image || item.pictureUrl || '').trim(),
+        imagePublicId: String(item.imagePublicId || '').trim(),
+        points,
+        required,
+        options,
+        correctAnswer,
+        correctOptions,
+        pairs,
+        answerKey
+      };
+    });
+  }
+
+  function updateBulkJsonLivePreview() {
+    if (!bulkJsonTextarea || !bulkJsonPreviewBadge) return;
+    if (bulkJsonError) bulkJsonError.textContent = '';
+    const raw = bulkJsonTextarea.value.trim();
+    if (!raw) {
+      bulkJsonPreviewBadge.textContent = '0 Questions Detected';
+      bulkJsonPreviewBadge.classList.remove('valid', 'invalid');
+      return;
+    }
+    try {
+      const normalized = parseAndNormalizeBulkJson(raw);
+      const countsByType = {};
+      normalized.forEach((it) => {
+        const lbl = BULK_TYPE_LABELS[it.type] || it.type;
+        countsByType[lbl] = (countsByType[lbl] || 0) + 1;
+      });
+      const breakdown = Object.entries(countsByType)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(' • ');
+      bulkJsonPreviewBadge.textContent = `${normalized.length} Item${normalized.length === 1 ? '' : 's'} Ready (${breakdown})`;
+      bulkJsonPreviewBadge.classList.add('valid');
+      bulkJsonPreviewBadge.classList.remove('invalid');
+    } catch (err) {
+      bulkJsonPreviewBadge.textContent = 'Invalid JSON';
+      bulkJsonPreviewBadge.classList.add('invalid');
+      bulkJsonPreviewBadge.classList.remove('valid');
+    }
+  }
+
+  function openBulkUploadModal() {
+    if (!bulkUploadQuestionsModal) return;
+    userChangedBulkTypeExplicitly = false;
+    if (bulkQuestionTypeSelect) bulkQuestionTypeSelect.value = 'auto';
+    if (bulkImportModeSelect) bulkImportModeSelect.value = 'append';
+    if (bulkMultiTypeChips) {
+      const defaultSelected = new Set(['mcq', 'match', 'checkbox', 'short_answer', 'section']);
+      bulkMultiTypeChips.querySelectorAll('.bulk-type-chip').forEach((chip) => {
+        const t = chip.getAttribute('data-btype') || '';
+        chip.classList.toggle('active', defaultSelected.has(t));
+      });
+      syncBulkTypeChipLabels();
+    }
+    if (bulkJsonFileInput) bulkJsonFileInput.value = '';
+    if (bulkJsonTextarea) {
+      bulkJsonTextarea.value = '';
+      bulkJsonTextarea.placeholder = getSampleJsonForType('auto');
+    }
+    if (bulkJsonFileNameText) {
+      bulkJsonFileNameText.textContent = 'Click to choose a .json file or drag & drop here';
+    }
+    if (bulkJsonFileSubText) {
+      bulkJsonFileSubText.innerHTML = 'Supports single or multiple question types in one JSON file (see <code>json.txt</code>)';
+    }
+    if (bulkJsonError) bulkJsonError.textContent = '';
+    updateBulkJsonLivePreview();
+
+    bulkUploadQuestionsModal.classList.add('open');
+    bulkUploadQuestionsModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeBulkUploadModal() {
+    if (!bulkUploadQuestionsModal) return;
+    bulkUploadQuestionsModal.classList.remove('open');
+    bulkUploadQuestionsModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function handleBulkJsonFileSelected(file) {
+    if (!file) return;
+    if (bulkJsonError) bulkJsonError.textContent = '';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = String(e.target?.result || '');
+      if (bulkJsonTextarea) {
+        bulkJsonTextarea.value = content;
+      }
+      if (bulkJsonFileNameText) {
+        bulkJsonFileNameText.textContent = `Loaded: ${file.name}`;
+      }
+      updateBulkJsonLivePreview();
+      try {
+        const items = parseAndNormalizeBulkJson(content);
+        if (bulkJsonFileSubText) {
+          bulkJsonFileSubText.textContent = `${items.length} question(s) parsed from ${file.name}`;
+        }
+      } catch (err) {
+        if (bulkJsonError) bulkJsonError.textContent = err.message;
+      }
+    };
+    reader.onerror = () => {
+      if (bulkJsonError) bulkJsonError.textContent = 'Could not read the selected file.';
+    };
+    reader.readAsText(file);
+  }
+
+  if (bulkUploadQuestionsTopBtn) {
+    bulkUploadQuestionsTopBtn.addEventListener('click', openBulkUploadModal);
+  }
+  if (bulkUploadQuestionsBottomBtn) {
+    bulkUploadQuestionsBottomBtn.addEventListener('click', openBulkUploadModal);
+  }
+  if (bulkUploadModalCloseX) {
+    bulkUploadModalCloseX.addEventListener('click', closeBulkUploadModal);
+  }
+  if (bulkModalCancelBtn) {
+    bulkModalCancelBtn.addEventListener('click', closeBulkUploadModal);
+  }
+  if (bulkUploadQuestionsModal) {
+    bulkUploadQuestionsModal.addEventListener('click', (e) => {
+      if (e.target === bulkUploadQuestionsModal) closeBulkUploadModal();
+    });
+  }
+
+  if (bulkQuestionTypeSelect) {
+    bulkQuestionTypeSelect.addEventListener('change', () => {
+      const val = bulkQuestionTypeSelect.value;
+      userChangedBulkTypeExplicitly = val !== 'auto';
+      if (bulkMultiTypeChips && val !== 'auto') {
+        bulkMultiTypeChips.querySelectorAll('.bulk-type-chip').forEach((chip) => {
+          chip.classList.toggle('active', chip.getAttribute('data-btype') === val);
+        });
+        syncBulkTypeChipLabels();
+      }
+      if (bulkJsonTextarea) {
+        bulkJsonTextarea.placeholder = getSampleJsonForType(val);
+      }
+      updateBulkJsonLivePreview();
+    });
+  }
+
+  if (bulkMultiTypeChips) {
+    bulkMultiTypeChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.bulk-type-chip');
+      if (!chip) return;
+      chip.classList.toggle('active');
+      const activeList = getSelectedBulkTypesArray();
+      if (bulkMultiTypeChips.querySelectorAll('.bulk-type-chip.active').length === 0) {
+        chip.classList.add('active');
+      }
+      syncBulkTypeChipLabels();
+
+      if (bulkQuestionTypeSelect) {
+        if (activeList.length === 1) {
+          bulkQuestionTypeSelect.value = activeList[0];
+          userChangedBulkTypeExplicitly = true;
+        } else {
+          bulkQuestionTypeSelect.value = 'auto';
+          userChangedBulkTypeExplicitly = false;
+        }
+      }
+      if (bulkJsonTextarea) {
+        bulkJsonTextarea.placeholder = getSampleJsonForType(bulkQuestionTypeSelect ? bulkQuestionTypeSelect.value : 'auto');
+      }
+      updateBulkJsonLivePreview();
+    });
+  }
+
+  if (bulkSelectAllTypesBtn && bulkMultiTypeChips) {
+    bulkSelectAllTypesBtn.addEventListener('click', () => {
+      const allChips = Array.from(bulkMultiTypeChips.querySelectorAll('.bulk-type-chip'));
+      const allActive = allChips.every((c) => c.classList.contains('active'));
+      if (allActive) {
+        allChips.forEach((c, idx) => c.classList.toggle('active', idx === 0));
+      } else {
+        allChips.forEach((c) => c.classList.add('active'));
+      }
+      syncBulkTypeChipLabels();
+      const activeList = getSelectedBulkTypesArray();
+      if (bulkQuestionTypeSelect) {
+        bulkQuestionTypeSelect.value = activeList.length === 1 ? activeList[0] : 'auto';
+        userChangedBulkTypeExplicitly = activeList.length === 1;
+      }
+      if (bulkJsonTextarea) {
+        bulkJsonTextarea.placeholder = getSampleJsonForType(bulkQuestionTypeSelect ? bulkQuestionTypeSelect.value : 'auto');
+      }
+      updateBulkJsonLivePreview();
+    });
+  }
+
+  if (bulkJsonDropzone && bulkJsonFileInput) {
+    bulkJsonDropzone.addEventListener('click', () => {
+      bulkJsonFileInput.click();
+    });
+
+    bulkJsonFileInput.addEventListener('change', () => {
+      const file = bulkJsonFileInput.files && bulkJsonFileInput.files[0];
+      if (file) handleBulkJsonFileSelected(file);
+    });
+
+    bulkJsonDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      bulkJsonDropzone.classList.add('drag-active');
+    });
+
+    bulkJsonDropzone.addEventListener('dragleave', () => {
+      bulkJsonDropzone.classList.remove('drag-active');
+    });
+
+    bulkJsonDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      bulkJsonDropzone.classList.remove('drag-active');
+      const file = e.dataTransfer?.files && e.dataTransfer.files[0];
+      if (file) handleBulkJsonFileSelected(file);
+    });
+  }
+
+  if (bulkJsonTextarea) {
+    bulkJsonTextarea.addEventListener('input', updateBulkJsonLivePreview);
+  }
+
+  if (copyBulkPromptBtn) {
+    copyBulkPromptBtn.addEventListener('click', async () => {
+      const promptToCopy = buildDynamicChatGptPrompt();
+      const copied = await copyTextToClipboard(promptToCopy);
+      if (copied) {
+        showToast('ChatGPT multi-type JSON prompt copied! Paste it in ChatGPT with your questions.');
+      } else {
+        showToast('See json.txt in project root for the full ChatGPT prompt.');
+      }
+    });
+  }
+
+  if (confirmBulkImportBtn) {
+    confirmBulkImportBtn.addEventListener('click', () => {
+      if (!examQuestionsList) return;
+      if (bulkJsonError) bulkJsonError.textContent = '';
+
+      try {
+        const rawText = bulkJsonTextarea ? bulkJsonTextarea.value : '';
+        const importedItems = parseAndNormalizeBulkJson(rawText);
+        const mode = bulkImportModeSelect ? bulkImportModeSelect.value : 'append';
+
+        if (mode === 'replace') {
+          examQuestionsList.innerHTML = '';
+        } else {
+          // If appending and the only existing card is a single blank default card, replace that empty placeholder
+          const existingCards = examQuestionsList.querySelectorAll('.gform-question-card');
+          if (existingCards.length === 1) {
+            const firstPrompt = existingCards[0].querySelector('.gform-q-prompt-input')?.value.trim() || '';
+            const firstImg = existingCards[0].getAttribute('data-image-url') || '';
+            if (!firstPrompt && !firstImg) {
+              examQuestionsList.innerHTML = '';
+            }
+          }
+        }
+
+        importedItems.forEach((qData) => {
+          examQuestionsList.appendChild(createExamQuestionCard(qData));
+        });
+
+        updateExamBuilderCounters();
+        closeBulkUploadModal();
+        showToast(`Successfully imported ${importedItems.length} question(s) from JSON!`);
+      } catch (err) {
+        if (bulkJsonError) bulkJsonError.textContent = err.message || 'Invalid JSON format';
+      }
+    });
+  }
 
   async function handleSaveFullExam(e) {
     if (e) e.preventDefault();
@@ -2806,6 +3732,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="category-tag">${escapeHtml(std.category)}</span></td>
           <td>
             <div class="action-cell">
+              <button type="button" class="row-action-btn edit-btn edit-student-btn" title="Edit student">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
               <button type="button" class="row-action-btn delete-btn delete-student-btn" title="Delete student">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"></polyline>
@@ -2864,6 +3796,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  let editingStudentChestNo = null;
+
   // Handle Student Form Submission
   if (studentForm) {
     studentForm.addEventListener('submit', async (e) => {
@@ -2911,7 +3845,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check for duplicate chest number in DB
       try {
         const existingStudents = await getAllStudentsFromDB();
-        const duplicate = existingStudents.find((s) => String(s.chestNo).toLowerCase() === chestNo.toLowerCase());
+        const duplicate = existingStudents.find(
+          (s) =>
+            String(s.chestNo).toLowerCase() === chestNo.toLowerCase() &&
+            (!editingStudentChestNo || String(s.chestNo).toLowerCase() !== String(editingStudentChestNo).toLowerCase())
+        );
         if (duplicate) {
           if (studentChestNoError) studentChestNoError.textContent = `Chest #${chestNo} is already registered to "${duplicate.name}"`;
           if (studentChestNoInput) studentChestNoInput.classList.add('error');
@@ -2925,6 +3863,10 @@ document.addEventListener('DOMContentLoaded', () => {
           if (btnText) btnText.textContent = 'Saving...';
         }
 
+        if (editingStudentChestNo && String(editingStudentChestNo).toLowerCase() !== chestNo.toLowerCase()) {
+          await deleteStudentFromDB(editingStudentChestNo);
+        }
+
         const newStudent = {
           chestNo,
           name,
@@ -2933,11 +3875,34 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         await saveStudentToDB(newStudent);
+
+        // If editing an existing candidate, also sync updated name/chestNo into assigned program records
+        if (editingStudentChestNo) {
+          const allRecs = await getAllRecordsFromDB();
+          for (let i = 0; i < allRecs.length; i++) {
+            const r = allRecs[i];
+            const recChest = extractChestFromRecord(r);
+            if (recChest && String(recChest).toLowerCase() === String(editingStudentChestNo).toLowerCase()) {
+              await saveRecordToDB({
+                ...r,
+                chestNo,
+                candidate: `${name} (#${chestNo})`
+              });
+            }
+          }
+          await loadAndRenderTable();
+        }
+
         await loadAndRenderStudentsTable();
 
-        // Reset form
+        const wasEditing = Boolean(editingStudentChestNo);
+        editingStudentChestNo = null;
         studentForm.reset();
-        showToast(`Candidate "${name}" (Chest #${chestNo}) registered in Firebase!`);
+        showToast(
+          wasEditing
+            ? `Updated candidate "${name}" (Chest #${chestNo})!`
+            : `Candidate "${name}" (Chest #${chestNo}) registered in Firebase!`
+        );
       } catch (err) {
         console.error('Error saving candidate to Firebase:', err);
         showToast('Error saving candidate to database');
@@ -2951,9 +3916,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Student Row Deletion from IndexedDB
+  // Handle Student Row Edit & Deletion from IndexedDB
   if (studentsTableBody) {
     studentsTableBody.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.edit-student-btn');
+      if (editBtn) {
+        const row = editBtn.closest('tr');
+        if (row) {
+          const chestNo = row.getAttribute('data-chest') || '';
+          const studentName = row.querySelector('.student-name-cell')?.textContent?.trim() || '';
+          const catText = row.querySelector('.category-tag')?.textContent?.trim() || '';
+
+          editingStudentChestNo = chestNo;
+          if (studentNameInput) studentNameInput.value = studentName;
+          if (studentChestNoInput) studentChestNoInput.value = chestNo;
+          studentCategoryRadios.forEach((radio) => {
+            radio.checked = radio.value.toLowerCase() === catText.toLowerCase();
+          });
+          if (submitStudentBtn) {
+            const btnText = submitStudentBtn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = 'Update Candidate';
+          }
+          if (studentForm) {
+            studentForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          if (studentNameInput) studentNameInput.focus();
+          showToast(`Editing candidate "${studentName}" (#${chestNo})`);
+        }
+        return;
+      }
+
       const deleteBtn = e.target.closest('.delete-student-btn');
       if (deleteBtn) {
         const row = deleteBtn.closest('tr');
@@ -3338,6 +4330,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${scoreBadgeHtml}</td>
           <td style="text-align: right;">
             <div class="question-row-actions">
+              ${!isSharedValuationStandaloneMode ? `
               <button type="button" class="share-exam-row-btn share-valuation-row-btn" title="Share direct valuation link for ${escapeHtml(item.programName)}">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="18" cy="5" r="3"></circle>
@@ -3348,6 +4341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
                 <span>Share</span>
               </button>
+              ` : ''}
               <button type="button" class="set-exam-btn take-valuation-btn">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 11l3 3L22 4"></path>
@@ -3874,6 +4868,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const catParam = (urlParams.get('category') || 'General').trim();
     const isSpecificProg = Boolean(progParam && progParam.toLowerCase() !== 'all');
 
+    // Physically remove all other Admin views, sidebar, breadcrumbs, and Share buttons from DOM
+    const selectorsToRemove = [
+      '#adminSidebar',
+      '.breadcrumb-container',
+      '#programsView',
+      '#candidatesView',
+      '#questionView',
+      '#setExamPageView',
+      '#settingsView',
+      '#addRecordModal',
+      '#shareExamModal',
+      '#bulkUploadQuestionsModal',
+      '#shareValuationProgramBtn',
+      '#shareValuationSheetBtn'
+    ];
+    if (isSpecificProg) {
+      selectorsToRemove.push('#valuationProgramSelect');
+    }
+    selectorsToRemove.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => el.remove());
+    });
+
     document.title = isSpecificProg
       ? `${progParam} (${catParam}) — Valuation`
       : `Sibaq '26 — Valuation Portal`;
@@ -3887,11 +4903,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isSpecificProg) {
         if (titleEl) titleEl.textContent = `${progParam} (${catParam}) — Valuation`;
         if (descEl) descEl.textContent = `Review students' submitted exams and perform valuation for ${progParam} (${catParam})`;
-        if (valuationProgramSelect) valuationProgramSelect.style.display = 'none';
       }
     }
 
     await loadAndRenderValuationTable();
+    // Remove row share buttons in restricted shared valuation view
+    document.querySelectorAll('.share-valuation-row-btn').forEach((btn) => btn.remove());
   }
 
   // ==========================================================================

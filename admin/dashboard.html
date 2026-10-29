@@ -511,6 +511,15 @@
               <span>Share</span>
             </button>
 
+            <button type="button" class="builder-add-top-btn builder-bulk-top-btn" id="bulkUploadQuestionsTopBtn" title="Bulk import questions from a .json file">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Bulk Upload JSON</span>
+            </button>
+
             <button type="button" class="builder-add-top-btn builder-section-top-btn" id="addExamSectionTopBtn" title="Add a read-only Section / Reading Passage (like Google Forms)">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="6" rx="1.5"></rect>
@@ -591,6 +600,15 @@
                   <rect x="3" y="14" width="18" height="6" rx="1.5"></rect>
                 </svg>
                 <span>+ Add Section (Read Only)</span>
+              </button>
+
+              <button type="button" class="add-program-btn gform-bulk-add-btn" id="bulkUploadQuestionsBottomBtn" title="Bulk upload questions from a JSON file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Bulk Upload JSON</span>
               </button>
             </div>
 
@@ -1147,6 +1165,137 @@
         <p class="share-modal-note" id="shareExamModalNote">
           Anyone with this link can open and edit questions <strong>only for this program</strong> without accessing any other Admin panels.
         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Upload Questions from JSON Modal -->
+  <div class="modal-overlay" id="bulkUploadQuestionsModal" aria-hidden="true">
+    <div class="modal-card bulk-upload-modal-card glass-card-dash" role="dialog" aria-modal="true" aria-labelledby="bulkUploadModalTitle">
+      <div class="modal-header">
+        <div class="share-modal-title-group">
+          <div class="section-icon-badge">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div>
+            <h2 class="modal-title" id="bulkUploadModalTitle">Bulk Upload Questions (JSON)</h2>
+            <p class="section-card-subtitle">Select question type and import a <code>.json</code> file or paste JSON from ChatGPT</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-x" id="bulkUploadModalCloseX" aria-label="Close bulk upload dialog">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="bulk-upload-modal-body">
+        <div class="bulk-config-grid">
+          <!-- 1. Select Question Type (Single or Multiple Types) -->
+          <div class="form-group">
+            <label class="form-section-label" for="bulkQuestionTypeSelect">1. Question Type Mode</label>
+            <select id="bulkQuestionTypeSelect" class="gform-q-type-select bulk-type-select">
+              <option value="auto" selected>Multiple Question Types (Mixed Exam JSON)</option>
+              <option value="mcq">Multiple Choice (MCQ Only)</option>
+              <option value="match">Match the Following Only</option>
+              <option value="checkbox">Checkboxes (Multiple Answers)</option>
+              <option value="radio">Radio Buttons</option>
+              <option value="short_answer">Short Answer</option>
+              <option value="long_answer">Long Answer / Paragraph</option>
+              <option value="image_identify">Picture / Identify It</option>
+              <option value="true_false">True / False</option>
+              <option value="dropdown">Dropdown</option>
+              <option value="section">Section / Reading Passage (Read Only)</option>
+            </select>
+          </div>
+
+          <!-- 2. Import Mode -->
+          <div class="form-group">
+            <label class="form-section-label" for="bulkImportModeSelect">2. Import Mode</label>
+            <select id="bulkImportModeSelect" class="gform-q-type-select bulk-type-select">
+              <option value="append" selected>Add to Current Questions</option>
+              <option value="replace">Replace All Current Questions</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Multi-Select Question Type Chips (Select Multiple Question Types for Mixed Exam) -->
+        <div class="form-group">
+          <div class="bulk-label-row">
+            <label class="form-section-label">Select Question Types Included (Multi-Select)</label>
+            <button type="button" class="schedule-quick-btn" id="bulkSelectAllTypesBtn">Select All Types</button>
+          </div>
+          <div class="bulk-multi-type-chips" id="bulkMultiTypeChips">
+            <button type="button" class="bulk-type-chip active" data-btype="mcq">✓ MCQ</button>
+            <button type="button" class="bulk-type-chip active" data-btype="match">✓ Match the Following</button>
+            <button type="button" class="bulk-type-chip active" data-btype="checkbox">✓ Checkbox</button>
+            <button type="button" class="bulk-type-chip" data-btype="radio">Radio</button>
+            <button type="button" class="bulk-type-chip active" data-btype="short_answer">✓ Short Answer</button>
+            <button type="button" class="bulk-type-chip" data-btype="long_answer">Long Answer</button>
+            <button type="button" class="bulk-type-chip" data-btype="image_identify">Picture / Identify</button>
+            <button type="button" class="bulk-type-chip" data-btype="true_false">True / False</button>
+            <button type="button" class="bulk-type-chip" data-btype="dropdown">Dropdown</button>
+            <button type="button" class="bulk-type-chip active" data-btype="section">✓ Section (Read Only)</button>
+          </div>
+        </div>
+
+        <!-- 3. Upload JSON File Dropzone -->
+        <div class="form-group">
+          <div class="bulk-label-row">
+            <label class="form-section-label">3. Import <code>.json</code> File</label>
+            <button type="button" class="copy-chatgpt-prompt-btn" id="copyBulkPromptBtn" title="Copy the ChatGPT prompt from json.txt to convert normal text into JSON">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy ChatGPT Prompt (json.txt)</span>
+            </button>
+          </div>
+
+          <div class="bulk-json-dropzone" id="bulkJsonDropzone">
+            <input type="file" id="bulkJsonFileInput" accept=".json,application/json,text/plain" style="display: none;" />
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <div class="bulk-dropzone-text">
+              <strong id="bulkJsonFileNameText">Click to choose a .json file or drag &amp; drop here</strong>
+              <span id="bulkJsonFileSubText">Supports JSON array of questions generated via ChatGPT (see <code>json.txt</code>)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. JSON Content Preview / Direct Paste -->
+        <div class="form-group">
+          <div class="bulk-label-row">
+            <label class="form-section-label" for="bulkJsonTextarea">Or Paste / Preview JSON Content</label>
+            <span class="bulk-preview-badge" id="bulkJsonPreviewBadge">0 Questions Detected</span>
+          </div>
+          <textarea
+            id="bulkJsonTextarea"
+            class="bulk-json-textarea"
+            rows="6"
+            placeholder='[&#10;  {&#10;    "type": "mcq",&#10;    "questionText": "What is the capital of India?",&#10;    "options": ["Mumbai", "New Delhi", "Kolkata", "Chennai"],&#10;    "correctAnswer": "New Delhi",&#10;    "points": 1&#10;  }&#10;]'
+          ></textarea>
+          <span class="field-error" id="bulkJsonError"></span>
+        </div>
+
+        <div class="modal-actions bulk-modal-actions">
+          <button type="button" class="btn-cancel" id="bulkModalCancelBtn">Cancel</button>
+          <button type="button" class="submit-btn" id="confirmBulkImportBtn">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="btn-text">Import Questions</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

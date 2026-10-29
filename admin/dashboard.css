@@ -3300,6 +3300,185 @@ body.shared-valuation-mode .admin-main {
 }
 
 /* ==========================================================================
+   Bulk Upload Questions (JSON Import Modal & Buttons)
+   ========================================================================== */
+.builder-bulk-top-btn,
+.gform-bulk-add-btn {
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  color: #1d4ed8 !important;
+  background: rgba(37, 99, 235, 0.07) !important;
+}
+
+.builder-bulk-top-btn:hover,
+.gform-bulk-add-btn:hover {
+  background: rgba(37, 99, 235, 0.14) !important;
+  border-color: rgba(37, 99, 235, 0.48) !important;
+}
+
+.bulk-upload-modal-card {
+  max-width: 640px;
+  width: 94%;
+}
+
+.bulk-upload-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.bulk-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.bulk-type-select {
+  width: 100%;
+  height: 42px;
+}
+
+.bulk-multi-type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bulk-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 36, 43, 0.16);
+  background: #ffffff;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.bulk-type-chip:hover {
+  border-color: rgba(217, 78, 31, 0.4);
+  color: var(--text-main);
+}
+
+.bulk-type-chip.active {
+  background: rgba(217, 78, 31, 0.1);
+  border-color: var(--brand-terracotta);
+  color: var(--brand-terracotta);
+  font-weight: 700;
+}
+
+.bulk-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.copy-chatgpt-prompt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(217, 78, 31, 0.28);
+  background: rgba(217, 78, 31, 0.08);
+  color: var(--brand-terracotta);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.copy-chatgpt-prompt-btn:hover {
+  background: rgba(217, 78, 31, 0.15);
+  border-color: rgba(217, 78, 31, 0.45);
+}
+
+.bulk-json-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.04);
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.bulk-json-dropzone:hover,
+.bulk-json-dropzone.drag-active {
+  background: rgba(37, 99, 235, 0.09);
+  border-color: #2563eb;
+}
+
+.bulk-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bulk-dropzone-text strong {
+  font-size: 0.86rem;
+  color: var(--text-main);
+}
+
+.bulk-dropzone-text span {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.bulk-preview-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-muted);
+}
+
+.bulk-preview-badge.valid {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.bulk-preview-badge.invalid {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+.bulk-json-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(30, 36, 43, 0.16);
+  background: rgba(15, 23, 42, 0.025);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  resize: vertical;
+  outline: none;
+}
+
+.bulk-json-textarea:focus {
+  border-color: var(--brand-terracotta);
+  background: #ffffff;
+}
+
+.bulk-modal-actions {
+  margin-top: 4px;
+}
+
+/* ==========================================================================
    Responsive Adaptations
    ========================================================================== */
 @media (max-width: 960px) {

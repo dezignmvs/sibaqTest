@@ -1,0 +1,132 @@
+================================================================================
+SIBAQ '26 EXAM BUILDER — CHATGPT PROMPT (SINGLE & MULTIPLE QUESTION TYPES)
+================================================================================
+
+Copy everything between [START OF CHATGPT PROMPT] and [END OF CHATGPT PROMPT],
+paste it into ChatGPT, and paste your raw exam paper / bulk questions at the end.
+Then copy ChatGPT's JSON output into a `.json` file (or paste it directly) in:
+Admin -> Question -> Set Exam -> "Bulk Upload JSON"
+
+--------------------------------------------------------------------------------
+[START OF CHATGPT PROMPT]
+--------------------------------------------------------------------------------
+You are an expert Exam JSON Converter for the Sibaq '26 Exam Portal.
+Convert the raw bulk exam text/questions I provide below into a SINGLE valid JSON array `[ ... ]` that supports MULTIPLE question types and reading sections in the same exam.
+
+### 1. OUTPUT RULES
+- Output ONLY raw, valid JSON (a single JSON array `[ ... ]`). Do NOT wrap in extra explanation text.
+- Automatically detect each item's question type from the raw text (or follow any section headers like "Part A: MCQ", "Match the Following", "True or False", "Short Answer", "Read the Passage", etc.).
+- If the raw text contains a reading passage, comprehension text, or part header/instructions before a group of questions, create a `"type": "section"` item for it first, followed by the questions in the same array.
+
+### 2. SUPPORTED `"type"` VALUES (MIX ANY OF THESE IN ONE JSON ARRAY)
+1. `"section"`        -> Read-Only Reading Passage / Part Header (No question input, `"points": 0`, `"required": false`)
+2. `"mcq"`            -> Multiple Choice Question (4 or more options, single correct answer)
+3. `"checkbox"`       -> Multiple Selection Checkboxes (multiple correct answers in `"correctOptions"`)
+4. `"radio"`          -> Single Choice Radio Buttons
+5. `"match"`          -> Match the Following (Column A to Column B pairs in `"pairs"`)
+6. `"true_false"`     -> True / False Question (`"options": ["True", "False"]`)
+7. `"dropdown"`       -> Dropdown Selection (`"options": [...]`, `"correctAnswer": "..."`)
+8. `"short_answer"`   -> Short Answer / Fill in the Blank / One-Word Question
+9. `"long_answer"`    -> Long Answer / Essay / Paragraph Question
+10. `"image_identify"` -> Picture / Identify It Question (with optional `"imageUrl"`)
+
+### 3. COMPLETE MULTI-TYPE JSON SCHEMA EXAMPLE
+```json
+[
+  {
+    "type": "section",
+    "questionText": "Part A: Read the Passage Carefully",
+    "sectionContent": "Read the following passage carefully before answering Questions 1 and 2. Islamic civilization flourished during the Golden Age through translations, scientific inquiry, and literature.",
+    "points": 0,
+    "required": false
+  },
+  {
+    "type": "mcq",
+    "questionText": "What is the capital of India?",
+    "options": ["Mumbai", "New Delhi", "Kolkata", "Chennai"],
+    "correctAnswer": "New Delhi",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "checkbox",
+    "questionText": "Which of the following are programming languages? (Select all that apply)",
+    "options": ["Python", "HTML", "JavaScript", "CSS"],
+    "correctOptions": ["Python", "JavaScript"],
+    "points": 2,
+    "required": true
+  },
+  {
+    "type": "match",
+    "questionText": "Match the scholars in Column A with their famous works in Column B:",
+    "pairs": [
+      { "left": "Ibn Khaldun", "right": "Muqaddimah" },
+      { "left": "Al-Ghazali", "right": "Ihya Ulum al-Din" },
+      { "left": "Ibn Sina", "right": "The Canon of Medicine" }
+    ],
+    "points": 3,
+    "required": true
+  },
+  {
+    "type": "true_false",
+    "questionText": "The sun rises in the East.",
+    "options": ["True", "False"],
+    "correctAnswer": "True",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "radio",
+    "questionText": "Select the category for senior level:",
+    "options": ["Bidaya", "Ūlā", "Āliya"],
+    "correctAnswer": "Āliya",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "dropdown",
+    "questionText": "Choose the script primarily used for monumental Quranic inscriptions:",
+    "options": ["Thuluth", "Ruq'ah", "Diwani", "Ta'liq"],
+    "correctAnswer": "Thuluth",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "short_answer",
+    "questionText": "Who wrote the famous historical work 'Muqaddimah'?",
+    "answerKey": "Ibn Khaldun",
+    "points": 2,
+    "required": true
+  },
+  {
+    "type": "long_answer",
+    "questionText": "Explain the significance of Islamic calligraphy and its major script styles.",
+    "answerKey": "Key points: preservation of Quranic text, Kufic, Naskh, Thuluth, and architectural inscriptions.",
+    "points": 5,
+    "required": true
+  },
+  {
+    "type": "image_identify",
+    "questionText": "Identify the historical mosque shown in the picture:",
+    "imageUrl": "",
+    "answerKey": "Al-Aqsa Mosque",
+    "points": 2,
+    "required": true
+  }
+]
+```
+
+### 4. STRICT FORMATTING RULES
+- Strip leading numbering/labels such as `"1."`, `"Q1)"`, `"a)"`, `"(A)"`, `"i."` from `"questionText"` and `"options"`.
+- For `"mcq"`, `"radio"`, `"dropdown"`, and `"true_false"`, `"correctAnswer"` MUST be the exact text of the winning option (not just the letter `"A"` or `"B"`).
+- For `"checkbox"`, `"correctOptions"` MUST be an array of the exact winning option strings.
+- For `"match"`, each row in `"pairs"` MUST have `{"left": "...", "right": "..."}` where `"right"` is the correct match for `"left"`.
+- For `"short_answer"`, `"long_answer"`, and `"image_identify"`, place the expected answer or grading rubric inside `"answerKey"`.
+- For `"section"`, put the section title in `"questionText"`, the full passage/instructions to read in `"sectionContent"`, `"points": 0`, and `"required": false`.
+
+Now convert the following bulk exam text (including all its different question types and sections) into a single JSON array:
+
+[PASTE YOUR RAW BULK QUESTIONS / FULL EXAM PAPER TEXT HERE]
+--------------------------------------------------------------------------------
+[END OF CHATGPT PROMPT]
+--------------------------------------------------------------------------------

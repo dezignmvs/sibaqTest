@@ -7,6 +7,21 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Shared-link isolation guard: if this browser session is locked to a shared Question/Valuation link,
+  // block access to the candidate dashboard and redirect back to the shared link.
+  try {
+    const rawLock = sessionStorage.getItem('sibaq_shared_link_lock') || (!sessionStorage.getItem('sibaq_auth') && !sessionStorage.getItem('sibaq_participant') ? localStorage.getItem('sibaq_shared_link_lock') : null);
+    if (rawLock) {
+      const parsedLock = JSON.parse(rawLock);
+      if (parsedLock && parsedLock.lockedUrl) {
+        window.location.replace(parsedLock.lockedUrl);
+        return;
+      }
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+
   const logoutBtn = document.getElementById('logoutBtn');
   const toastNotice = document.getElementById('toastNotice');
 
