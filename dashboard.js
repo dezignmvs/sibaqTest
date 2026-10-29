@@ -689,6 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pts = q.points !== undefined ? `${q.points} Point${q.points === 1 ? '' : 's'}` : '1 Point';
     const typeLabels = {
       mcq: 'Multiple Choice Question',
+      image_identify: 'Picture Identification Question',
       match: 'Match the Following',
       checkbox: 'Multiple Selection (Checkboxes)',
       radio: 'Single Choice (Radio)',
@@ -796,15 +797,24 @@ document.addEventListener('DOMContentLoaded', () => {
         >${escapeHtml(typeof savedVal === 'string' ? savedVal : '')}</textarea>
       `;
     } else {
+      const placeholderTxt = q.type === 'image_identify'
+        ? 'Identify the picture shown above and type your answer here (auto-saved)...'
+        : 'Type your short answer here (auto-saved as you type)...';
       answerBodyHtml = `
         <input
           type="text"
           class="slide-text-input slide-short-input"
           value="${escapeHtml(typeof savedVal === 'string' ? savedVal : '')}"
-          placeholder="Type your short answer here (auto-saved as you type)..."
+          placeholder="${placeholderTxt}"
         />
       `;
     }
+
+    const slideImageHtml = q.imageUrl
+      ? `<div class="slide-question-image-box">
+          <img src="${escapeHtml(q.imageUrl)}" alt="Question Picture" class="slide-question-image-el" />
+        </div>`
+      : '';
 
     candExamQuestionText.innerHTML = `
       <div class="slide-question-header">
@@ -819,6 +829,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ${escapeHtml(q.questionText)}
         ${q.required ? '<span class="req-star" title="Required">*</span>' : ''}
       </h3>
+
+      ${slideImageHtml}
 
       <div class="slide-answer-area">
         ${answerBodyHtml}
@@ -1192,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let answeredCount = 0;
     for (let i = 0; i < totalSlidesCount; i++) {
-      if (isSlideAnswered(i)) answeredCount++;
+      if (activeSlides[i] && isSlideAnswered(activeSlides[i], i)) answeredCount++;
     }
 
     await persistAttemptToRecordDB(progToSave, {

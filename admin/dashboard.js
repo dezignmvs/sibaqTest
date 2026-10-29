@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLinks = document.querySelectorAll('.nav-link');
   const filterBtns = document.querySelectorAll('#programsView .filter-btn');
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const isSharedExamStandaloneMode =
+    urlParams.get('shareExam') === '1' && Boolean(urlParams.get('program'));
+  if (isSharedExamStandaloneMode) {
+    document.body.classList.add('shared-exam-builder-mode');
+  }
+
   // Tab configurations
   const tabConfigs = {
     'Data': {
@@ -520,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (realtimeUnsubRecords) realtimeUnsubRecords();
       realtimeUnsubRecords = onSnapshot(collection(fdb, STORE_NAME), () => {
+        if (isSharedExamStandaloneMode) return;
         loadAndRenderTable();
         loadAndRenderQuestionTable();
         if (typeof loadAndRenderValuationTable === 'function') loadAndRenderValuationTable();
@@ -534,6 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (realtimeUnsubStudents) realtimeUnsubStudents();
       realtimeUnsubStudents = onSnapshot(collection(fdb, STUDENTS_STORE), () => {
+        if (isSharedExamStandaloneMode) return;
         loadAndRenderStudentsTable();
       }, (err) => {
         console.warn('Realtime students listener notice:', err);
@@ -758,12 +767,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize DB and load tables (starts empty, connects to Firebase Cloud Firestore)
   async function initDatabase() {
     try {
+      if (isSharedExamStandaloneMode) {
+        await activateSharedExamBuilderFromUrl();
+      }
       subscribeRealtimeUpdates();
-      await loadAndRenderTable();
-      await loadAndRenderStudentsTable();
-      await loadAndRenderQuestionTable();
-      if (typeof loadAndRenderValuationTable === 'function') await loadAndRenderValuationTable();
-      if (typeof loadAndRenderScheduledPrograms === 'function') await loadAndRenderScheduledPrograms();
+      if (!isSharedExamStandaloneMode) {
+        await loadAndRenderTable();
+        await loadAndRenderStudentsTable();
+        await loadAndRenderQuestionTable();
+        if (typeof loadAndRenderValuationTable === 'function') await loadAndRenderValuationTable();
+        if (typeof loadAndRenderScheduledPrograms === 'function') await loadAndRenderScheduledPrograms();
+      }
     } catch (err) {
       console.warn('Database initialization note:', err);
     }
@@ -772,6 +786,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Re-subscribe and refresh when Firebase auth is confirmed
   window.addEventListener('firebase-auth-ready', () => {
     subscribeRealtimeUpdates();
+    if (isSharedExamStandaloneMode) {
+      activateSharedExamBuilderFromUrl();
+      return;
+    }
     loadAndRenderTable();
     loadAndRenderStudentsTable();
     loadAndRenderQuestionTable();
@@ -1065,9 +1083,6 @@ document.addEventListener('DOMContentLoaded', () => {
       row.style.display = (matchCategory && matchSearch) ? '' : 'none';
     });
   }
-
-  // Start Firebase / Database initialization
-  initDatabase();
 
   // Handle Multi-Program Form Submission with Firebase Cloud Firestore persistence
   if (addRecordForm) {
@@ -1454,6 +1469,16 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="text-align: right;">
             <div class="question-row-actions">
               ${reopenProgramBtnHtml}
+              <button type="button" class="share-exam-row-btn" title="Share direct link to ${escapeHtml(prog.programName)} question making">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                <span>Share</span>
+              </button>
               <button type="button" class="set-exam-btn">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -1487,6 +1512,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
               reopenProgBtn.disabled = false;
             }
+          });
+        }
+
+        const shareRowBtn = tr.querySelector('.share-exam-row-btn');
+        if (shareRowBtn) {
+          shareRowBtn.addEventListener('click', () => {
+            openShareExamModal(prog);
           });
         }
 
@@ -1536,13 +1568,45 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================================================
-  // Full-Page Google Forms-Style Unlimited Question Builder
+  // Full-Page Google Forms-Style Unlimited Question Builder + Cloudinary Upload
   // ==========================================================================
+  const CLOUDINARY_CLOUD_NAME = 'da6fjyirm';
+  const CLOUDINARY_UPLOAD_PRESET = 'sibaaqText';
+  const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+  async function uploadQuestionImageToCloudinary(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    const response = await fetch(CLOUDINARY_UPLOAD_URL, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      let errMsg = `Cloudinary upload failed (${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson?.error?.message) errMsg = errJson.error.message;
+      } catch (e) {}
+      throw new Error(errMsg);
+    }
+
+    const data = await response.json();
+    return {
+      imageUrl: data.secure_url || data.url || '',
+      imagePublicId: data.public_id || ''
+    };
+  }
+
   function createDefaultQuestionData(type = 'mcq') {
     return {
       id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type,
-      questionText: '',
+      questionText: type === 'image_identify' ? 'Identify the picture shown below:' : '',
+      imageUrl: '',
+      imagePublicId: '',
       points: 1,
       required: true,
       options: ['Option 1', 'Option 2'],
@@ -1794,21 +1858,40 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 4. Short Answer or Long Answer
+    // 4. Picture Identification, Short Answer, or Long Answer
     const isLong = type === 'long_answer';
+    const isImageIdentify = type === 'image_identify';
     const textPreviewWrap = document.createElement('div');
     textPreviewWrap.className = 'gform-text-answer-wrap';
     textPreviewWrap.innerHTML = `
       <div class="gform-answer-preview ${isLong ? 'long-preview' : 'short-preview'}">
-        <span>${isLong ? 'Candidate Long Answer / Paragraph text area' : 'Candidate Short Answer text field'}</span>
+        <span>${
+          isImageIdentify
+            ? 'Candidate views the uploaded picture above and types their identification answer'
+            : isLong
+            ? 'Candidate Long Answer / Paragraph text area'
+            : 'Candidate Short Answer text field'
+        }</span>
       </div>
       <div class="gform-answer-key-row">
-        <label class="gform-key-label">${isLong ? 'Grading Rubric / Reference Answer (Optional):' : 'Expected Correct Answer Key (Optional):'}</label>
+        <label class="gform-key-label">${
+          isImageIdentify
+            ? 'Correct Picture Identification Name / Key (Optional):'
+            : isLong
+            ? 'Grading Rubric / Reference Answer (Optional):'
+            : 'Expected Correct Answer Key (Optional):'
+        }</label>
         <input
           type="text"
           class="gform-answer-key-input"
           value="${escapeHtml(qData.answerKey || qData.correctAnswer || '')}"
-          placeholder="${isLong ? 'Enter key points or reference answer...' : 'Enter exact expected answer...'}"
+          placeholder="${
+            isImageIdentify
+              ? 'e.g. Al-Aqsa Mosque / Ibn Khaldun...'
+              : isLong
+              ? 'Enter key points or reference answer...'
+              : 'Enter exact expected answer...'
+          }"
         />
       </div>
     `;
@@ -1825,11 +1908,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const questionText = qTextInput ? qTextInput.value.trim() : '';
     const points = pointsInput ? Math.max(0, parseFloat(pointsInput.value) || 0) : 1;
     const required = reqCheckbox ? reqCheckbox.checked : true;
+    const imageUrl = card.getAttribute('data-image-url') || '';
+    const imagePublicId = card.getAttribute('data-image-public-id') || '';
 
     const data = {
       id: card.getAttribute('data-q-id') || `q_${Date.now()}`,
       type,
       questionText,
+      imageUrl,
+      imagePublicId,
       points,
       required,
       options: [],
@@ -1877,11 +1964,92 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
+  function renderQuestionImageBox(card) {
+    const imgContainer = card.querySelector('.gform-q-image-container');
+    const fileInput = card.querySelector('.gform-q-file-input');
+    const typeSelect = card.querySelector('.gform-q-type-select');
+    if (!imgContainer) return;
+
+    const imageUrl = card.getAttribute('data-image-url') || '';
+    const isUploading = card.getAttribute('data-image-uploading') === 'true';
+    const isIdentifyType = typeSelect && typeSelect.value === 'image_identify';
+
+    if (isUploading) {
+      imgContainer.style.display = 'block';
+      imgContainer.innerHTML = `
+        <div class="gform-img-dropzone uploading">
+          <span class="btn-spinner" style="display:inline-block; width:18px; height:18px; border:2.5px solid rgba(224,104,75,0.25); border-top-color:var(--brand-terracotta); border-radius:50%; animation:spin 0.65s linear infinite;"></span>
+          <span>Uploading picture to Cloudinary (<strong>${CLOUDINARY_CLOUD_NAME}</strong> / <code>${CLOUDINARY_UPLOAD_PRESET}</code>)...</span>
+        </div>
+      `;
+      return;
+    }
+
+    if (imageUrl) {
+      imgContainer.style.display = 'block';
+      imgContainer.innerHTML = `
+        <div class="gform-img-preview-card">
+          <div class="gform-img-preview-frame">
+            <img src="${escapeHtml(imageUrl)}" alt="Question Picture" class="gform-img-preview-el" />
+          </div>
+          <div class="gform-img-preview-bar">
+            <span class="cloudinary-tag">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Cloudinary Picture Attached
+            </span>
+            <div class="gform-img-preview-actions">
+              <button type="button" class="gform-img-action-btn change-img-btn">Replace Picture</button>
+              <button type="button" class="gform-img-action-btn remove-img-btn">Remove</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      imgContainer.querySelector('.change-img-btn')?.addEventListener('click', () => {
+        if (fileInput) fileInput.click();
+      });
+      imgContainer.querySelector('.remove-img-btn')?.addEventListener('click', () => {
+        card.setAttribute('data-image-url', '');
+        card.setAttribute('data-image-public-id', '');
+        renderQuestionImageBox(card);
+        showToast('Removed picture from question');
+      });
+      return;
+    }
+
+    if (isIdentifyType) {
+      imgContainer.style.display = 'block';
+      imgContainer.innerHTML = `
+        <div class="gform-img-dropzone" title="Click to upload a picture to identify">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <div class="dropzone-text-group">
+            <strong>Upload Picture for Identification</strong>
+            <span>Click to choose an image (uploads via Cloudinary <code>${CLOUDINARY_UPLOAD_PRESET}</code>)</span>
+          </div>
+        </div>
+      `;
+      imgContainer.querySelector('.gform-img-dropzone')?.addEventListener('click', () => {
+        if (fileInput) fileInput.click();
+      });
+    } else {
+      imgContainer.style.display = 'none';
+      imgContainer.innerHTML = '';
+    }
+  }
+
   function createExamQuestionCard(initialData) {
     const qData = initialData || createDefaultQuestionData('mcq');
     const card = document.createElement('div');
     card.className = 'gform-question-card glass-card-dash';
     card.setAttribute('data-q-id', qData.id || `q_${Date.now()}`);
+    card.setAttribute('data-image-url', qData.imageUrl || '');
+    card.setAttribute('data-image-public-id', qData.imagePublicId || '');
 
     card.innerHTML = `
       <div class="gform-q-top-row">
@@ -1891,15 +2059,26 @@ document.addEventListener('DOMContentLoaded', () => {
             type="text"
             class="gform-q-prompt-input"
             value="${escapeHtml(qData.questionText || '')}"
-            placeholder="Enter your question prompt here..."
+            placeholder="Enter your question prompt here (e.g. Identify this picture)..."
             required
           />
           <span class="field-error gform-q-error"></span>
         </div>
 
+        <button type="button" class="gform-upload-img-btn" title="Upload picture for this question (Cloudinary)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span>Picture</span>
+        </button>
+        <input type="file" accept="image/*" class="gform-q-file-input" style="display: none;" />
+
         <div class="gform-q-type-wrap">
           <select class="gform-q-type-select" aria-label="Question Type">
             <option value="mcq" ${qData.type === 'mcq' ? 'selected' : ''}>Multiple Choice (MCQ)</option>
+            <option value="image_identify" ${qData.type === 'image_identify' ? 'selected' : ''}>Picture / Identify It</option>
             <option value="match" ${qData.type === 'match' ? 'selected' : ''}>Match the Following</option>
             <option value="checkbox" ${qData.type === 'checkbox' ? 'selected' : ''}>Checkboxes</option>
             <option value="radio" ${qData.type === 'radio' ? 'selected' : ''}>Radio Buttons</option>
@@ -1911,6 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
 
+      <div class="gform-q-image-container" style="display: none;"></div>
       <div class="gform-q-body"></div>
 
       <div class="gform-q-footer">
@@ -1955,11 +2135,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const typeSelect = card.querySelector('.gform-q-type-select');
     const promptInput = card.querySelector('.gform-q-prompt-input');
     const promptError = card.querySelector('.gform-q-error');
+    const uploadImgBtn = card.querySelector('.gform-upload-img-btn');
+    const fileInput = card.querySelector('.gform-q-file-input');
     const pointsInput = card.querySelector('.gform-points-input');
     const dupBtn = card.querySelector('.gform-dup-q-btn');
     const delBtn = card.querySelector('.gform-delete-q-btn');
 
+    renderQuestionImageBox(card);
     renderQuestionBodyByType(bodyContainer, qData);
+
+    if (uploadImgBtn && fileInput) {
+      uploadImgBtn.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+          showToast('Please select a valid image file (PNG, JPG, WEBP)');
+          fileInput.value = '';
+          return;
+        }
+
+        card.setAttribute('data-image-uploading', 'true');
+        uploadImgBtn.disabled = true;
+        renderQuestionImageBox(card);
+
+        try {
+          const uploaded = await uploadQuestionImageToCloudinary(file);
+          card.setAttribute('data-image-url', uploaded.imageUrl);
+          card.setAttribute('data-image-public-id', uploaded.imagePublicId);
+          if (promptInput && !promptInput.value.trim()) {
+            promptInput.value = 'Identify the picture shown below:';
+          }
+          showToast('Picture uploaded to Cloudinary!');
+        } catch (err) {
+          console.error('Cloudinary image upload error:', err);
+          showToast(`Image upload error: ${err.message || 'Check Cloudinary preset'}`);
+        } finally {
+          card.setAttribute('data-image-uploading', 'false');
+          uploadImgBtn.disabled = false;
+          fileInput.value = '';
+          renderQuestionImageBox(card);
+        }
+      });
+    }
 
     if (promptInput) {
       promptInput.addEventListener('input', () => {
@@ -1972,6 +2194,10 @@ document.addEventListener('DOMContentLoaded', () => {
       typeSelect.addEventListener('change', () => {
         const currentExtracted = extractQuestionDataFromCard(card);
         currentExtracted.type = typeSelect.value;
+        if (typeSelect.value === 'image_identify' && promptInput && !promptInput.value.trim()) {
+          promptInput.value = 'Identify the picture shown below:';
+          currentExtracted.questionText = promptInput.value;
+        }
         if (currentExtracted.options.length === 0) {
           currentExtracted.options = ['Option 1', 'Option 2'];
         }
@@ -1981,6 +2207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { left: 'Item B', right: 'Match 2' }
           ];
         }
+        renderQuestionImageBox(card);
         renderQuestionBodyByType(bodyContainer, currentExtracted);
       });
     }
@@ -2013,23 +2240,156 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
+  // Share Question Maker Link Modal & Standalone Shared Mode
+  const shareExamLinkBtn = document.getElementById('shareExamLinkBtn');
+  const shareExamModal = document.getElementById('shareExamModal');
+  const shareExamModalCloseX = document.getElementById('shareExamModalCloseX');
+  const shareModalProgName = document.getElementById('shareModalProgName');
+  const shareModalCategory = document.getElementById('shareModalCategory');
+  const shareExamUrlInput = document.getElementById('shareExamUrlInput');
+  const copyShareExamUrlBtn = document.getElementById('copyShareExamUrlBtn');
+  const copyShareBtnText = document.getElementById('copyShareBtnText');
+
+  function buildShareExamUrl(prog) {
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const params = new URLSearchParams();
+    params.set('shareExam', '1');
+    params.set('program', prog.programName || '');
+    params.set('category', prog.category || 'General');
+    return `${baseUrl}?${params.toString()}`;
+  }
+
+  async function copyTextToClipboard(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) {}
+    try {
+      if (shareExamUrlInput) {
+        shareExamUrlInput.focus();
+        shareExamUrlInput.select();
+        document.execCommand('copy');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  async function openShareExamModal(prog) {
+    if (!prog) return;
+    const shareUrl = buildShareExamUrl(prog);
+
+    if (shareModalProgName) shareModalProgName.textContent = prog.programName || 'Program';
+    if (shareModalCategory) shareModalCategory.textContent = prog.category || 'General';
+    if (shareExamUrlInput) shareExamUrlInput.value = shareUrl;
+    if (copyShareBtnText) copyShareBtnText.textContent = 'Copy Link';
+
+    if (shareExamModal) {
+      shareExamModal.classList.add('open');
+      shareExamModal.setAttribute('aria-hidden', 'false');
+    }
+
+    const copied = await copyTextToClipboard(shareUrl);
+    if (copied) {
+      if (copyShareBtnText) copyShareBtnText.textContent = 'Copied!';
+      showToast(`Share link copied for "${prog.programName}"!`);
+    }
+  }
+
+  function closeShareExamModal() {
+    if (!shareExamModal) return;
+    shareExamModal.classList.remove('open');
+    shareExamModal.setAttribute('aria-hidden', 'true');
+  }
+
+  if (shareExamLinkBtn) {
+    shareExamLinkBtn.addEventListener('click', () => {
+      if (activeExamProgram) {
+        openShareExamModal(activeExamProgram);
+      }
+    });
+  }
+
+  if (shareExamModalCloseX) {
+    shareExamModalCloseX.addEventListener('click', closeShareExamModal);
+  }
+
+  if (shareExamModal) {
+    shareExamModal.addEventListener('click', (e) => {
+      if (e.target === shareExamModal) closeShareExamModal();
+    });
+  }
+
+  if (copyShareExamUrlBtn) {
+    copyShareExamUrlBtn.addEventListener('click', async () => {
+      const urlVal = shareExamUrlInput ? shareExamUrlInput.value : '';
+      if (!urlVal) return;
+      await copyTextToClipboard(urlVal);
+      if (copyShareBtnText) copyShareBtnText.textContent = 'Copied!';
+      showToast('Share link copied to clipboard!');
+    });
+  }
+
+  async function activateSharedExamBuilderFromUrl() {
+    if (!isSharedExamStandaloneMode) return;
+    const progNameParam = (urlParams.get('program') || '').trim();
+    const catParam = (urlParams.get('category') || 'General').trim();
+    if (!progNameParam) return;
+
+    document.body.classList.add('shared-exam-builder-mode');
+    document.title = `${progNameParam} (${catParam}) — Question Maker`;
+
+    const key = makeProgramExamKey(progNameParam, catParam);
+    const savedExams = getSavedExamsMap();
+    const localExam = savedExams[key] || {};
+    const allRecords = await getAllRecordsFromDB();
+    const matchingRec = allRecords.find(
+      (r) => makeProgramExamKey(r.programName, r.category) === key
+    );
+
+    const progObj = {
+      key,
+      programName: matchingRec?.programName || progNameParam,
+      category: matchingRec?.category || catParam,
+      examQuestion: matchingRec?.examQuestion || localExam.examQuestion || '',
+      examDuration: matchingRec?.examDuration || localExam.examDuration || '',
+      examDescription: matchingRec?.examDescription || localExam.examDescription || '',
+      examQuestions:
+        Array.isArray(matchingRec?.examQuestions) && matchingRec.examQuestions.length > 0
+          ? matchingRec.examQuestions
+          : Array.isArray(localExam.examQuestions)
+          ? localExam.examQuestions
+          : []
+    };
+
+    openSetExamPage(progObj);
+  }
+
   function openSetExamPage(prog) {
     if (!setExamPageView) return;
     activeExamProgram = prog;
 
-    if (questionView) {
-      questionView.classList.remove('active');
-      questionView.style.display = 'none';
-    }
+    hideAllMainSubviews();
     setExamPageView.classList.add('active');
     setExamPageView.style.display = 'flex';
 
-    if (breadcrumbParent) {
-      breadcrumbParent.textContent = 'Question';
-      breadcrumbParent.style.display = '';
+    if (isSharedExamStandaloneMode) {
+      if (examBuilderBackBtn) examBuilderBackBtn.style.display = 'none';
+      const topDivider = setExamPageView.querySelector('.builder-topbar-divider');
+      if (topDivider) topDivider.style.display = 'none';
+      if (breadcrumbParent) breadcrumbParent.style.display = 'none';
+      if (breadcrumbParentSep) breadcrumbParentSep.style.display = 'none';
+    } else {
+      if (examBuilderBackBtn) examBuilderBackBtn.style.display = '';
+      if (breadcrumbParent) {
+        breadcrumbParent.textContent = 'Question';
+        breadcrumbParent.style.display = '';
+      }
+      if (breadcrumbParentSep) breadcrumbParentSep.style.display = '';
+      if (breadcrumbLabel) breadcrumbLabel.textContent = `${prog.programName} (Set Exam)`;
     }
-    if (breadcrumbParentSep) breadcrumbParentSep.style.display = '';
-    if (breadcrumbLabel) breadcrumbLabel.textContent = `${prog.programName} (Set Exam)`;
 
     if (examModalProgramName) examModalProgramName.textContent = prog.programName;
     if (examModalCategory) examModalCategory.textContent = prog.category;
@@ -2169,17 +2529,32 @@ document.addEventListener('DOMContentLoaded', () => {
         (r) => makeProgramExamKey(r.programName, r.category) === key
       );
 
-      for (let i = 0; i < matching.length; i++) {
-        const updatedRecord = {
-          ...matching[i],
+      if (matching.length > 0) {
+        for (let i = 0; i < matching.length; i++) {
+          const updatedRecord = {
+            ...matching[i],
+            ...examPayload
+          };
+          await saveRecordToDB(updatedRecord);
+        }
+      } else {
+        // Ensure a program record exists in DB when saved via shared link
+        const newRec = {
+          id: `SBQ-${Math.floor(1000 + Math.random() * 9000)}`,
+          programName: activeExamProgram.programName,
+          category: activeExamProgram.category || 'General',
+          candidate: '0 Candidate',
+          createdAt: Date.now(),
           ...examPayload
         };
-        await saveRecordToDB(updatedRecord);
+        await saveRecordToDB(newRec);
       }
 
       const progTitle = activeExamProgram.programName;
       showToast(`Saved ${collectedQuestions.length} question(s) for "${progTitle}"!`);
-      closeSetExamPage();
+      if (!isSharedExamStandaloneMode) {
+        closeSetExamPage();
+      }
     } catch (err) {
       console.error('Error saving exam:', err);
       showToast('Error saving exam');
@@ -2566,6 +2941,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return { mark: isExact ? maxPts : 0, status: isExact ? 'correct' : 'manual', hasKey: true };
   }
 
+  function getQuestionAnswerFromMap(answersObj, q, idx) {
+    if (!answersObj || typeof answersObj !== 'object') return undefined;
+    if (q && q.id && answersObj[q.id] !== undefined) return answersObj[q.id];
+    if (answersObj[idx] !== undefined) return answersObj[idx];
+    if (answersObj[`slide_${idx}`] !== undefined) return answersObj[`slide_${idx}`];
+    return undefined;
+  }
+
   function countAnsweredInMap(answersObj) {
     if (!answersObj || typeof answersObj !== 'object') return 0;
     let count = 0;
@@ -2608,7 +2991,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let autoSuggestedTotal = 0;
         questions.forEach((q, idx) => {
-          const autoRes = computeAutoMarkForQuestion(q, answers[idx]);
+          const autoRes = computeAutoMarkForQuestion(q, getQuestionAnswerFromMap(answers, q, idx));
           autoSuggestedTotal += autoRes.mark;
         });
 
@@ -2934,7 +3317,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       item.questions.forEach((q, idx) => {
         const maxPts = Math.max(0, parseFloat(q.points) || 1);
-        const studentAns = item.answers ? item.answers[idx] : undefined;
+        const studentAns = getQuestionAnswerFromMap(item.answers, q, idx);
         const autoRes = computeAutoMarkForQuestion(q, studentAns);
 
         const hasSavedMark = item.savedQuestionMarks && item.savedQuestionMarks[idx] !== undefined;
@@ -2952,6 +3335,12 @@ document.addEventListener('DOMContentLoaded', () => {
           autoPillHtml = `<span class="val-auto-pill unanswered">Unanswered (0 Pt)</span>`;
         }
 
+        const qImageHtml = q.imageUrl
+          ? `<div class="val-q-image-box">
+              <img src="${escapeHtml(q.imageUrl)}" alt="Question Picture" class="val-q-image-el" />
+            </div>`
+          : '';
+
         const card = document.createElement('div');
         card.className = 'gform-question-card valuation-q-card glass-card-dash';
         card.setAttribute('data-q-idx', idx);
@@ -2968,6 +3357,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             ${autoPillHtml}
           </div>
+
+          ${qImageHtml}
 
           <div class="val-comparison-grid">
             <div class="val-answer-box student-box">
@@ -3075,7 +3466,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cards.forEach((card) => {
         const idx = Number(card.getAttribute('data-q-idx'));
         const q = activeValuationSubmission.questions[idx];
-        const studentAns = activeValuationSubmission.answers ? activeValuationSubmission.answers[idx] : undefined;
+        const studentAns = getQuestionAnswerFromMap(activeValuationSubmission.answers, q, idx);
         if (q) {
           const autoRes = computeAutoMarkForQuestion(q, studentAns);
           const inp = card.querySelector('.val-q-mark-input');
@@ -3634,4 +4025,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 500);
     });
   }
+
+  // Start Firebase / Database initialization after all views & controllers are registered
+  initDatabase();
 });
