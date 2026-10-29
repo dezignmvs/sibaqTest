@@ -20,8 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const isSharedExamStandaloneMode =
     urlParams.get('shareExam') === '1' && Boolean(urlParams.get('program'));
+  const isSharedValuationStandaloneMode =
+    urlParams.get('shareValuation') === '1';
   if (isSharedExamStandaloneMode) {
     document.body.classList.add('shared-exam-builder-mode');
+  } else if (isSharedValuationStandaloneMode) {
+    document.body.classList.add('shared-valuation-mode');
   }
 
   // Tab configurations
@@ -528,6 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (realtimeUnsubRecords) realtimeUnsubRecords();
       realtimeUnsubRecords = onSnapshot(collection(fdb, STORE_NAME), () => {
         if (isSharedExamStandaloneMode) return;
+        if (isSharedValuationStandaloneMode) {
+          if (!activeValuationSubmission && typeof loadAndRenderValuationTable === 'function') {
+            loadAndRenderValuationTable();
+          }
+          return;
+        }
         loadAndRenderTable();
         loadAndRenderQuestionTable();
         if (typeof loadAndRenderValuationTable === 'function') loadAndRenderValuationTable();
@@ -542,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (realtimeUnsubStudents) realtimeUnsubStudents();
       realtimeUnsubStudents = onSnapshot(collection(fdb, STUDENTS_STORE), () => {
-        if (isSharedExamStandaloneMode) return;
+        if (isSharedExamStandaloneMode || isSharedValuationStandaloneMode) return;
         loadAndRenderStudentsTable();
       }, (err) => {
         console.warn('Realtime students listener notice:', err);
@@ -769,9 +779,11 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (isSharedExamStandaloneMode) {
         await activateSharedExamBuilderFromUrl();
+      } else if (isSharedValuationStandaloneMode) {
+        await activateSharedValuationFromUrl();
       }
       subscribeRealtimeUpdates();
-      if (!isSharedExamStandaloneMode) {
+      if (!isSharedExamStandaloneMode && !isSharedValuationStandaloneMode) {
         await loadAndRenderTable();
         await loadAndRenderStudentsTable();
         await loadAndRenderQuestionTable();
@@ -788,6 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
     subscribeRealtimeUpdates();
     if (isSharedExamStandaloneMode) {
       activateSharedExamBuilderFromUrl();
+      return;
+    }
+    if (isSharedValuationStandaloneMode) {
+      activateSharedValuationFromUrl();
       return;
     }
     loadAndRenderTable();
@@ -1601,14 +1617,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function createDefaultQuestionData(type = 'mcq') {
+    const isSection = type === 'section';
     return {
       id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type,
       questionText: type === 'image_identify' ? 'Identify the picture shown below:' : '',
+      sectionContent: '',
       imageUrl: '',
       imagePublicId: '',
-      points: 1,
-      required: true,
+      points: isSection ? 0 : 1,
+      required: isSection ? false : true,
       options: ['Option 1', 'Option 2'],
       correctAnswer: '',
       correctOptions: [],
@@ -1624,15 +1642,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!examQuestionsList) return;
     const cards = examQuestionsList.querySelectorAll('.gform-question-card');
     let totalPts = 0;
+    let questionCounter = 0;
+    let sectionCounter = 0;
 
     cards.forEach((card, idx) => {
       card.setAttribute('data-q-index', idx);
-      const numBadge = card.querySelector('.gform-q-num');
-      if (numBadge) numBadge.textContent = `Q${idx + 1}`;
+      const typeSelect = card.querySelector('.gform-q-type-select');
+      const isSection = typeSelect && typeSelect.value === 'section';
 
-      const ptsInput = card.querySelector('.gform-points-input');
-      const pts = ptsInput ? Math.max(0, parseFloat(ptsInput.value) || 0) : 1;
-      totalPts += pts;
+      card.classList.toggle('gform-section-card', Boolean(isSection));
+
+      const numBadge = card.querySelector('.gform-q-num');
+      if (isSection) {
+        sectionCounter++;
+        if (numBadge) {
+          numBadge.textContent = `SEC ${sectionCounter}`;
+          numBadge.classList.add('section-badge');
+        }
+      } else {
+        questionCounter++;
+        if (numBadge) {
+          numBadge.textContent = `Q${questionCounter}`;
+          numBadge.classList.remove('section-badge');
+        }
+      }
+
+      const ptsBox = card.querySelector('.gform-points-box');
+      const reqToggle = card.querySelector('.gform-req-toggle');
+      const secFooterNote = card.querySelector('.gform-section-footer-note');
+      if (ptsBox) ptsBox.style.display = isSection ? 'none' : 'flex';
+      if (reqToggle) reqToggle.style.display = isSection ? 'none' : 'inline-flex';
+      if (secFooterNote) secFooterNote.style.display = isSection ? 'inline-flex' : 'none';
+
+      if (!isSection) {
+        const ptsInput = card.querySelector('.gform-points-input');
+        const pts = ptsInput ? Math.max(0, parseFloat(ptsInput.value) || 0) : 1;
+        totalPts += pts;
+      }
 
       const delBtn = card.querySelector('.gform-delete-q-btn');
       if (delBtn) {
@@ -1642,7 +1688,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (examBuilderQuestionCount) {
-      examBuilderQuestionCount.textContent = `${cards.length} Question${cards.length === 1 ? '' : 's'}`;
+      const qLabel = `${questionCounter} Question${questionCounter === 1 ? '' : 's'}`;
+      const sLabel = sectionCounter > 0 ? ` • ${sectionCounter} Section${sectionCounter === 1 ? '' : 's'}` : '';
+      examBuilderQuestionCount.textContent = `${qLabel}${sLabel}`;
     }
     if (examBuilderTotalMarks) {
       examBuilderTotalMarks.textContent = `${totalPts} Pt${totalPts === 1 ? '' : 's'}`;
@@ -1652,6 +1700,29 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderQuestionBodyByType(bodyContainer, qData) {
     const type = qData.type || 'mcq';
     bodyContainer.innerHTML = '';
+
+    // 0. Google Forms-Style Read-Only Section / Reading Passage (No Question)
+    if (type === 'section') {
+      const sectionWrap = document.createElement('div');
+      sectionWrap.className = 'gform-section-body-wrap';
+      sectionWrap.innerHTML = `
+        <div class="gform-section-info-banner">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <span><strong>Reading Section (No Question):</strong> Candidates will read this section on its own slide before continuing to the next questions. No answer input or marks are required.</span>
+        </div>
+        <label class="gform-key-label">Section Reading Passage / Instructions to Read:</label>
+        <textarea
+          class="gform-section-content-input"
+          rows="4"
+          placeholder="Write or paste the passage, story, instructions, or reference text here for students to read..."
+        >${escapeHtml(qData.sectionContent || qData.answerKey || '')}</textarea>
+      `;
+      bodyContainer.appendChild(sectionWrap);
+      return;
+    }
 
     // 1. Multiple Choice (MCQ), Radio, Checkboxes, or Dropdown
     if (type === 'mcq' || type === 'radio' || type === 'checkbox' || type === 'dropdown') {
@@ -1905,9 +1976,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const reqCheckbox = card.querySelector('.gform-req-checkbox');
 
     const type = typeSelect ? typeSelect.value : 'mcq';
+    const isSection = type === 'section';
     const questionText = qTextInput ? qTextInput.value.trim() : '';
-    const points = pointsInput ? Math.max(0, parseFloat(pointsInput.value) || 0) : 1;
-    const required = reqCheckbox ? reqCheckbox.checked : true;
+    const points = isSection ? 0 : (pointsInput ? Math.max(0, parseFloat(pointsInput.value) || 0) : 1);
+    const required = isSection ? false : (reqCheckbox ? reqCheckbox.checked : true);
     const imageUrl = card.getAttribute('data-image-url') || '';
     const imagePublicId = card.getAttribute('data-image-public-id') || '';
 
@@ -1915,6 +1987,7 @@ document.addEventListener('DOMContentLoaded', () => {
       id: card.getAttribute('data-q-id') || `q_${Date.now()}`,
       type,
       questionText,
+      sectionContent: '',
       imageUrl,
       imagePublicId,
       points,
@@ -1925,6 +1998,12 @@ document.addEventListener('DOMContentLoaded', () => {
       pairs: [],
       answerKey: ''
     };
+
+    if (isSection) {
+      const secInput = card.querySelector('.gform-section-content-input');
+      data.sectionContent = secInput ? secInput.value.trim() : '';
+      return data;
+    }
 
     if (type === 'mcq' || type === 'radio' || type === 'checkbox' || type === 'dropdown') {
       const optRows = card.querySelectorAll('.gform-option-row');
@@ -2051,21 +2130,26 @@ document.addEventListener('DOMContentLoaded', () => {
     card.setAttribute('data-image-url', qData.imageUrl || '');
     card.setAttribute('data-image-public-id', qData.imagePublicId || '');
 
+    const isSectionInit = qData.type === 'section';
+    const promptPlaceholder = isSectionInit
+      ? 'Enter Section Title / Heading (e.g. Part 1: Read the Passage Below)...'
+      : 'Enter your question prompt here (e.g. Identify this picture)...';
+
     card.innerHTML = `
       <div class="gform-q-top-row">
-        <span class="gform-q-num">Q1</span>
+        <span class="gform-q-num">${isSectionInit ? 'SEC' : 'Q1'}</span>
         <div class="gform-q-prompt-wrap">
           <input
             type="text"
             class="gform-q-prompt-input"
             value="${escapeHtml(qData.questionText || '')}"
-            placeholder="Enter your question prompt here (e.g. Identify this picture)..."
+            placeholder="${promptPlaceholder}"
             required
           />
           <span class="field-error gform-q-error"></span>
         </div>
 
-        <button type="button" class="gform-upload-img-btn" title="Upload picture for this question (Cloudinary)">
+        <button type="button" class="gform-upload-img-btn" title="Upload picture for this question or section (Cloudinary)">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -2077,6 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="gform-q-type-wrap">
           <select class="gform-q-type-select" aria-label="Question Type">
+            <option value="section" ${qData.type === 'section' ? 'selected' : ''}>Section / Reading Passage (No Question)</option>
             <option value="mcq" ${qData.type === 'mcq' ? 'selected' : ''}>Multiple Choice (MCQ)</option>
             <option value="image_identify" ${qData.type === 'image_identify' ? 'selected' : ''}>Picture / Identify It</option>
             <option value="match" ${qData.type === 'match' ? 'selected' : ''}>Match the Following</option>
@@ -2094,7 +2179,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="gform-q-body"></div>
 
       <div class="gform-q-footer">
-        <div class="gform-points-box">
+        <div class="gform-section-footer-note" style="display: ${isSectionInit ? 'inline-flex' : 'none'};">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <span>Read-Only Section • No Question Answer / 0 Pts</span>
+        </div>
+        <div class="gform-points-box" style="display: ${isSectionInit ? 'none' : 'flex'};">
           <label>Points:</label>
           <input
             type="number"
@@ -2107,7 +2199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="gform-q-actions">
-          <label class="gform-req-toggle">
+          <label class="gform-req-toggle" style="display: ${isSectionInit ? 'none' : 'inline-flex'};">
             <input type="checkbox" class="gform-req-checkbox" ${qData.required !== false ? 'checked' : ''} />
             <span>Required</span>
           </label>
@@ -2194,6 +2286,12 @@ document.addEventListener('DOMContentLoaded', () => {
       typeSelect.addEventListener('change', () => {
         const currentExtracted = extractQuestionDataFromCard(card);
         currentExtracted.type = typeSelect.value;
+        if (promptInput) {
+          promptInput.placeholder =
+            typeSelect.value === 'section'
+              ? 'Enter Section Title / Heading (e.g. Part 1: Read the Passage Below)...'
+              : 'Enter your question prompt here (e.g. Identify this picture)...';
+        }
         if (typeSelect.value === 'image_identify' && promptInput && !promptInput.value.trim()) {
           promptInput.value = 'Identify the picture shown below:';
           currentExtracted.questionText = promptInput.value;
@@ -2209,6 +2307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderQuestionImageBox(card);
         renderQuestionBodyByType(bodyContainer, currentExtracted);
+        updateExamBuilderCounters();
       });
     }
 
@@ -2240,10 +2339,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
-  // Share Question Maker Link Modal & Standalone Shared Mode
+  // Share Question Maker & Valuation Link Modal + Standalone Shared Mode
   const shareExamLinkBtn = document.getElementById('shareExamLinkBtn');
   const shareExamModal = document.getElementById('shareExamModal');
   const shareExamModalCloseX = document.getElementById('shareExamModalCloseX');
+  const shareExamModalTitle = document.getElementById('shareExamModalTitle');
+  const shareExamModalSubtitle = document.getElementById('shareExamModalSubtitle');
+  const shareExamUrlLabel = document.getElementById('shareExamUrlLabel');
+  const shareExamModalNote = document.getElementById('shareExamModalNote');
   const shareModalProgName = document.getElementById('shareModalProgName');
   const shareModalCategory = document.getElementById('shareModalCategory');
   const shareExamUrlInput = document.getElementById('shareExamUrlInput');
@@ -2256,6 +2359,19 @@ document.addEventListener('DOMContentLoaded', () => {
     params.set('shareExam', '1');
     params.set('program', prog.programName || '');
     params.set('category', prog.category || 'General');
+    return `${baseUrl}?${params.toString()}`;
+  }
+
+  function buildShareValuationUrl(prog) {
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const params = new URLSearchParams();
+    params.set('shareValuation', '1');
+    if (prog && prog.programName && prog.programName !== 'all') {
+      params.set('program', prog.programName);
+      params.set('category', prog.category || 'General');
+    } else {
+      params.set('program', 'all');
+    }
     return `${baseUrl}?${params.toString()}`;
   }
 
@@ -2281,6 +2397,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!prog) return;
     const shareUrl = buildShareExamUrl(prog);
 
+    if (shareExamModalTitle) shareExamModalTitle.textContent = 'Share Question Maker Link';
+    if (shareExamModalSubtitle) shareExamModalSubtitle.textContent = "Opens only this program's question-making page";
+    if (shareExamUrlLabel) shareExamUrlLabel.textContent = 'Direct Question-Making URL';
+    if (shareExamModalNote) {
+      shareExamModalNote.innerHTML = 'Anyone with this link can open and edit questions <strong>only for this program</strong> without accessing any other Admin panels.';
+    }
+
     if (shareModalProgName) shareModalProgName.textContent = prog.programName || 'Program';
     if (shareModalCategory) shareModalCategory.textContent = prog.category || 'General';
     if (shareExamUrlInput) shareExamUrlInput.value = shareUrl;
@@ -2295,6 +2418,48 @@ document.addEventListener('DOMContentLoaded', () => {
     if (copied) {
       if (copyShareBtnText) copyShareBtnText.textContent = 'Copied!';
       showToast(`Share link copied for "${prog.programName}"!`);
+    }
+  }
+
+  async function openShareValuationModal(prog) {
+    const isAllProgs = !prog || !prog.programName || prog.programName === 'all';
+    const shareUrl = buildShareValuationUrl(prog);
+
+    if (shareExamModalTitle) shareExamModalTitle.textContent = 'Share Program Valuation Link';
+    if (shareExamModalSubtitle) {
+      shareExamModalSubtitle.textContent = isAllProgs
+        ? 'Opens only the student exam valuation portal'
+        : "Opens only this program's exam valuation page";
+    }
+    if (shareExamUrlLabel) shareExamUrlLabel.textContent = 'Direct Valuation URL';
+    if (shareExamModalNote) {
+      shareExamModalNote.innerHTML = isAllProgs
+        ? 'Anyone with this link can review submitted student exams and perform valuation <strong>only in the Valuation panel</strong> without accessing other Admin tabs.'
+        : 'Anyone with this link can review submitted student exams and perform valuation <strong>only for this program</strong> without accessing any other Admin panels.';
+    }
+
+    if (shareModalProgName) {
+      shareModalProgName.textContent = isAllProgs ? 'All Programs Valuation' : prog.programName;
+    }
+    if (shareModalCategory) {
+      shareModalCategory.textContent = isAllProgs ? 'Valuation Portal' : (prog.category || 'General');
+    }
+    if (shareExamUrlInput) shareExamUrlInput.value = shareUrl;
+    if (copyShareBtnText) copyShareBtnText.textContent = 'Copy Link';
+
+    if (shareExamModal) {
+      shareExamModal.classList.add('open');
+      shareExamModal.setAttribute('aria-hidden', 'false');
+    }
+
+    const copied = await copyTextToClipboard(shareUrl);
+    if (copied) {
+      if (copyShareBtnText) copyShareBtnText.textContent = 'Copied!';
+      showToast(
+        isAllProgs
+          ? 'Valuation portal share link copied!'
+          : `Valuation share link copied for "${prog.programName}"!`
+      );
     }
   }
 
@@ -2452,12 +2617,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (promptInput) promptInput.focus();
   }
 
+  const addExamSectionTopBtn = document.getElementById('addExamSectionTopBtn');
+  const addExamSectionBtn = document.getElementById('addExamSectionBtn');
+
   if (addExamQuestionBtn) {
     addExamQuestionBtn.addEventListener('click', () => addNewQuestionCardToBuilder('mcq'));
   }
 
   if (addExamQuestionTopBtn) {
     addExamQuestionTopBtn.addEventListener('click', () => addNewQuestionCardToBuilder('mcq'));
+  }
+
+  if (addExamSectionTopBtn) {
+    addExamSectionTopBtn.addEventListener('click', () => addNewQuestionCardToBuilder('section'));
+  }
+
+  if (addExamSectionBtn) {
+    addExamSectionBtn.addEventListener('click', () => addNewQuestionCardToBuilder('section'));
   }
 
   quickTypeBtns.forEach((btn) => {
@@ -2971,12 +3147,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const savedExams = getSavedExamsMap();
       const attemptsMap = getCandidateAttemptsMap();
 
+      const sharedValProgName = isSharedValuationStandaloneMode
+        ? (urlParams.get('program') || '').trim()
+        : '';
+      const sharedValCat = isSharedValuationStandaloneMode
+        ? (urlParams.get('category') || 'General').trim()
+        : '';
+      const sharedValKey =
+        sharedValProgName && sharedValProgName.toLowerCase() !== 'all'
+          ? makeProgramExamKey(sharedValProgName, sharedValCat)
+          : '';
+
       const candidateRecords = records.filter((rec) => {
         const isZeroCand = !rec.candidate ||
           rec.candidate === '0 Candidate' ||
           rec.candidate.toLowerCase().includes('0 candidate') ||
           rec.candidate.toLowerCase().includes('unassigned');
-        return !isZeroCand && Boolean(rec.programName);
+        if (isZeroCand || !rec.programName) return false;
+        if (sharedValKey) {
+          return makeProgramExamKey(rec.programName, rec.category) === sharedValKey;
+        }
+        return true;
       });
 
       const items = candidateRecords.map((rec) => {
@@ -2987,10 +3178,12 @@ document.addEventListener('DOMContentLoaded', () => {
           : (rec.savedAnswers || {});
 
         const questions = resolveExamQuestionsForRecord(rec, savedExams);
-        const maxMarks = questions.reduce((sum, q) => sum + (Math.max(0, parseFloat(q.points) || 1)), 0);
+        const gradableQuestions = questions.filter((q) => q.type !== 'section');
+        const maxMarks = gradableQuestions.reduce((sum, q) => sum + (Math.max(0, parseFloat(q.points) || 1)), 0);
 
         let autoSuggestedTotal = 0;
         questions.forEach((q, idx) => {
+          if (q.type === 'section') return;
           const autoRes = computeAutoMarkForQuestion(q, getQuestionAnswerFromMap(answers, q, idx));
           autoSuggestedTotal += autoRes.mark;
         });
@@ -3145,6 +3338,16 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${scoreBadgeHtml}</td>
           <td style="text-align: right;">
             <div class="question-row-actions">
+              <button type="button" class="share-exam-row-btn share-valuation-row-btn" title="Share direct valuation link for ${escapeHtml(item.programName)}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                <span>Share</span>
+              </button>
               <button type="button" class="set-exam-btn take-valuation-btn">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 11l3 3L22 4"></path>
@@ -3155,6 +3358,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </td>
         `;
+
+        const shareValRowBtn = tr.querySelector('.share-valuation-row-btn');
+        if (shareValRowBtn) {
+          shareValRowBtn.addEventListener('click', () => {
+            openShareValuationModal({
+              programName: item.programName,
+              category: item.category
+            });
+          });
+        }
 
         const valBtn = tr.querySelector('.take-valuation-btn');
         if (valBtn) {
@@ -3314,8 +3527,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (valuationQuestionsContainer) {
       valuationQuestionsContainer.innerHTML = '';
+      let qDisplayNum = 0;
+      let secDisplayNum = 0;
 
       item.questions.forEach((q, idx) => {
+        if (q.type === 'section') {
+          secDisplayNum++;
+          const secCard = document.createElement('div');
+          secCard.className = 'gform-question-card gform-section-card valuation-q-card glass-card-dash';
+          const secImageHtml = q.imageUrl
+            ? `<div class="val-q-image-box">
+                <img src="${escapeHtml(q.imageUrl)}" alt="Section Picture" class="val-q-image-el" />
+              </div>`
+            : '';
+          secCard.innerHTML = `
+            <div class="val-q-header">
+              <div class="val-q-title-wrap">
+                <span class="gform-q-num section-badge">SEC ${secDisplayNum}</span>
+                <div>
+                  <h3 class="val-q-prompt">${escapeHtml(q.questionText || `Section ${secDisplayNum}`)}</h3>
+                  <span class="val-q-type-label">READING SECTION (READ ONLY • NO MARKS)</span>
+                </div>
+              </div>
+              <span class="val-auto-pill manual">Read-Only Section (0 Pt)</span>
+            </div>
+            ${secImageHtml}
+            ${
+              q.sectionContent
+                ? `<div class="val-answer-box key-box" style="margin-top: 8px;">
+                    <span class="val-box-label">Section Reading Passage</span>
+                    <div class="val-box-content" style="white-space: pre-wrap;">${escapeHtml(q.sectionContent)}</div>
+                  </div>`
+                : ''
+            }
+          `;
+          valuationQuestionsContainer.appendChild(secCard);
+          return;
+        }
+
+        qDisplayNum++;
         const maxPts = Math.max(0, parseFloat(q.points) || 1);
         const studentAns = getQuestionAnswerFromMap(item.answers, q, idx);
         const autoRes = computeAutoMarkForQuestion(q, studentAns);
@@ -3349,9 +3599,9 @@ document.addEventListener('DOMContentLoaded', () => {
         card.innerHTML = `
           <div class="val-q-header">
             <div class="val-q-title-wrap">
-              <span class="gform-q-num">Q${idx + 1}</span>
+              <span class="gform-q-num">Q${qDisplayNum}</span>
               <div>
-                <h3 class="val-q-prompt">${escapeHtml(q.questionText || `Question #${idx + 1}`)}</h3>
+                <h3 class="val-q-prompt">${escapeHtml(q.questionText || `Question #${qDisplayNum}`)}</h3>
                 <span class="val-q-type-label">${escapeHtml((q.type || 'mcq').replace('_', ' ').toUpperCase())} • Max ${maxPts} Pt${maxPts === 1 ? '' : 's'}</span>
               </div>
             </div>
@@ -3562,6 +3812,86 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (saveValuationBtn) {
     saveValuationBtn.addEventListener('click', handleSaveValuation);
+  }
+
+  const shareValuationProgramBtn = document.getElementById('shareValuationProgramBtn');
+  const shareValuationSheetBtn = document.getElementById('shareValuationSheetBtn');
+
+  if (shareValuationProgramBtn) {
+    shareValuationProgramBtn.addEventListener('click', () => {
+      const selectedKey = valuationProgramSelect ? valuationProgramSelect.value : 'all';
+      if (selectedKey && selectedKey !== 'all') {
+        const match = cachedValuationItems.find((it) => it.programKey === selectedKey);
+        if (match) {
+          openShareValuationModal({
+            programName: match.programName,
+            category: match.category
+          });
+          return;
+        }
+      }
+
+      if (isSharedValuationStandaloneMode) {
+        const progParam = (urlParams.get('program') || '').trim();
+        const catParam = (urlParams.get('category') || 'General').trim();
+        if (progParam && progParam.toLowerCase() !== 'all') {
+          openShareValuationModal({ programName: progParam, category: catParam });
+          return;
+        }
+      }
+
+      const uniqueProgs = new Map();
+      cachedValuationItems.forEach((it) => {
+        if (!uniqueProgs.has(it.programKey)) {
+          uniqueProgs.set(it.programKey, { programName: it.programName, category: it.category });
+        }
+      });
+
+      if (uniqueProgs.size === 1) {
+        openShareValuationModal(Array.from(uniqueProgs.values())[0]);
+      } else {
+        openShareValuationModal({ programName: 'all', category: 'Valuation Portal' });
+      }
+    });
+  }
+
+  if (shareValuationSheetBtn) {
+    shareValuationSheetBtn.addEventListener('click', () => {
+      if (activeValuationSubmission) {
+        openShareValuationModal({
+          programName: activeValuationSubmission.programName,
+          category: activeValuationSubmission.category
+        });
+      }
+    });
+  }
+
+  async function activateSharedValuationFromUrl() {
+    if (!isSharedValuationStandaloneMode) return;
+    document.body.classList.add('shared-valuation-mode');
+
+    const progParam = (urlParams.get('program') || '').trim();
+    const catParam = (urlParams.get('category') || 'General').trim();
+    const isSpecificProg = Boolean(progParam && progParam.toLowerCase() !== 'all');
+
+    document.title = isSpecificProg
+      ? `${progParam} (${catParam}) — Valuation`
+      : `Sibaq '26 — Valuation Portal`;
+
+    hideAllMainSubviews();
+    if (valuationView) {
+      valuationView.classList.add('active');
+      valuationView.style.display = 'flex';
+      const titleEl = valuationView.querySelector('.panel-title');
+      const descEl = valuationView.querySelector('.panel-desc');
+      if (isSpecificProg) {
+        if (titleEl) titleEl.textContent = `${progParam} (${catParam}) — Valuation`;
+        if (descEl) descEl.textContent = `Review students' submitted exams and perform valuation for ${progParam} (${catParam})`;
+        if (valuationProgramSelect) valuationProgramSelect.style.display = 'none';
+      }
+    }
+
+    await loadAndRenderValuationTable();
   }
 
   // ==========================================================================

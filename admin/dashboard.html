@@ -511,6 +511,14 @@
               <span>Share</span>
             </button>
 
+            <button type="button" class="builder-add-top-btn builder-section-top-btn" id="addExamSectionTopBtn" title="Add a read-only Section / Reading Passage (like Google Forms)">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="6" rx="1.5"></rect>
+                <rect x="3" y="14" width="18" height="6" rx="1.5"></rect>
+              </svg>
+              <span>Add Section</span>
+            </button>
+
             <button type="button" class="builder-add-top-btn" id="addExamQuestionTopBtn">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -568,16 +576,27 @@
 
           <!-- Quick Add Question Toolbar (Bottom Floating/Dock) -->
           <div class="gform-add-toolbar glass-card-dash">
-            <button type="button" class="add-program-btn gform-main-add-btn" id="addExamQuestionBtn">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>+ Add New Question</span>
-            </button>
+            <div class="gform-main-add-group">
+              <button type="button" class="add-program-btn gform-main-add-btn" id="addExamQuestionBtn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>+ Add New Question</span>
+              </button>
+
+              <button type="button" class="add-program-btn gform-section-add-btn" id="addExamSectionBtn" title="Add a Google Forms-style reading section with no question">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="6" rx="1.5"></rect>
+                  <rect x="3" y="14" width="18" height="6" rx="1.5"></rect>
+                </svg>
+                <span>+ Add Section (Read Only)</span>
+              </button>
+            </div>
 
             <div class="quick-type-chips">
               <span class="quick-type-label">Quick Add:</span>
+              <button type="button" class="quick-type-btn section-chip-btn" data-qtype="section">Section / Passage</button>
               <button type="button" class="quick-type-btn" data-qtype="mcq">MCQ</button>
               <button type="button" class="quick-type-btn" data-qtype="image_identify">Picture / Identify It</button>
               <button type="button" class="quick-type-btn" data-qtype="match">Match the Following</button>
@@ -620,6 +639,17 @@
               <select id="valuationProgramSelect" class="valuation-prog-select" title="Filter by Program">
                 <option value="all">All Programs</option>
               </select>
+
+              <button type="button" class="builder-share-top-btn" id="shareValuationProgramBtn" title="Share direct valuation link for selected program">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                <span>Share Valuation</span>
+              </button>
             </div>
 
             <div class="filter-actions" id="valuationFilterActions">
@@ -687,6 +717,17 @@
               <span class="score-pill-label">Total Score:</span>
               <strong id="valSheetLiveTotal">0 / 0 Pts</strong>
             </div>
+
+            <button type="button" class="builder-share-top-btn" id="shareValuationSheetBtn" title="Share direct link to this program's valuation">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              <span>Share</span>
+            </button>
 
             <button type="button" class="builder-add-top-btn" id="autoGradeObjectiveBtn" title="Auto-grade objective answers from answer keys">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1092,7 +1133,7 @@
           <span class="category-tag" id="shareModalCategory">Category</span>
         </div>
 
-        <label class="form-section-label" for="shareExamUrlInput">Direct Question-Making URL</label>
+        <label class="form-section-label" id="shareExamUrlLabel" for="shareExamUrlInput">Direct Question-Making URL</label>
         <div class="share-url-copy-row">
           <input type="text" id="shareExamUrlInput" class="share-url-input" readonly />
           <button type="button" class="submit-btn share-copy-btn" id="copyShareExamUrlBtn">
@@ -1103,7 +1144,7 @@
             <span id="copyShareBtnText">Copy Link</span>
           </button>
         </div>
-        <p class="share-modal-note">
+        <p class="share-modal-note" id="shareExamModalNote">
           Anyone with this link can open and edit questions <strong>only for this program</strong> without accessing any other Admin panels.
         </p>
       </div>

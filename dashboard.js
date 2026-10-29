@@ -582,9 +582,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   // Fullscreen Slide-by-Slide Examination Engine & Proctored Auto-Save
   // ==========================================================================
+  const viewedSectionSlides = new Set();
+
   function collectCurrentSlideAnswerFromDOM() {
     if (!candExamQuestionText || !activeSlides[currentSlideIndex]) return;
     const q = activeSlides[currentSlideIndex];
+    if (q.type === 'section') {
+      viewedSectionSlides.add(currentSlideIndex);
+      return;
+    }
     const qKey = q.id || `slide_${currentSlideIndex}`;
 
     if (q.type === 'mcq' || q.type === 'radio' || q.type === 'true_false') {
@@ -629,6 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function isSlideAnswered(q, idx) {
+    if (q.type === 'section') {
+      return viewedSectionSlides.has(idx);
+    }
     const qKey = q.id || `slide_${idx}`;
     const val = currentAnswers[qKey];
     if (val === undefined || val === null) return false;
@@ -646,6 +655,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const qKey = q.id || `slide_${currentSlideIndex}`;
     const savedVal = currentAnswers[qKey];
 
+    if (q.type === 'section') {
+      viewedSectionSlides.add(currentSlideIndex);
+    }
+
     // Update top progress bar
     if (examSlideProgressFill) {
       const pct = Math.round(((currentSlideIndex + 1) / total) * 100);
@@ -655,13 +668,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update slide dots
     if (examSlideDots) {
       examSlideDots.innerHTML = '';
+      let qDotCounter = 0;
       activeSlides.forEach((slideQ, idx) => {
         const dot = document.createElement('button');
         dot.type = 'button';
+        const isSec = slideQ.type === 'section';
         const answered = isSlideAnswered(slideQ, idx);
-        dot.className = `slide-dot-btn ${idx === currentSlideIndex ? 'active' : ''} ${answered ? 'answered' : ''}`;
-        dot.textContent = idx + 1;
-        dot.title = `Go to Question ${idx + 1}`;
+        dot.className = `slide-dot-btn ${isSec ? 'section-dot' : ''} ${idx === currentSlideIndex ? 'active' : ''} ${answered ? 'answered' : ''}`;
+        if (isSec) {
+          dot.textContent = 'S';
+          dot.title = `Reading Section: ${slideQ.questionText || 'Passage'}`;
+        } else {
+          qDotCounter++;
+          dot.textContent = qDotCounter;
+          dot.title = `Go to Question ${qDotCounter}`;
+        }
         dot.addEventListener('click', () => {
           triggerAutoSave('Auto-Saved');
           currentSlideIndex = idx;
@@ -685,7 +706,47 @@ document.addEventListener('DOMContentLoaded', () => {
       candExamFinishBtn.style.display = currentSlideIndex === total - 1 ? 'inline-flex' : 'none';
     }
 
+    const slideImageHtml = q.imageUrl
+      ? `<div class="slide-question-image-box">
+          <img src="${escapeHtml(q.imageUrl)}" alt="Question Picture" class="slide-question-image-el" />
+        </div>`
+      : '';
+
+    // Handle Google Forms-Style Read-Only Section Slide (No Question Input)
+    if (q.type === 'section') {
+      candExamQuestionText.innerHTML = `
+        <div class="slide-question-header slide-section-header">
+          <div class="slide-q-badges">
+            <span class="slide-q-number slide-sec-badge">READING SECTION • SLIDE ${currentSlideIndex + 1} OF ${total}</span>
+            <span class="slide-q-type-pill">Section / Reading Passage</span>
+          </div>
+          <span class="slide-q-points">Read Only (No Answer Needed)</span>
+        </div>
+
+        <h3 class="slide-question-prompt slide-section-title">
+          ${escapeHtml(q.questionText || 'Read the following section carefully')}
+        </h3>
+
+        ${slideImageHtml}
+
+        <div class="slide-reading-section-box">
+          <div class="slide-reading-passage-body">${escapeHtml(q.sectionContent || 'Read the instructions above and click Continue to proceed to the questions.')}</div>
+          <div class="slide-reading-footer-hint">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            <span>This is a reading section with no question to answer. Click <strong>Continue</strong> below when you are ready.</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     // Build interactive input for this slide's question type
+    const totalActualQuestions = activeSlides.filter((s) => s.type !== 'section').length || total;
+    const currentActualQNum =
+      activeSlides.slice(0, currentSlideIndex + 1).filter((s) => s.type !== 'section').length || currentSlideIndex + 1;
     const pts = q.points !== undefined ? `${q.points} Point${q.points === 1 ? '' : 's'}` : '1 Point';
     const typeLabels = {
       mcq: 'Multiple Choice Question',
@@ -810,16 +871,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    const slideImageHtml = q.imageUrl
-      ? `<div class="slide-question-image-box">
-          <img src="${escapeHtml(q.imageUrl)}" alt="Question Picture" class="slide-question-image-el" />
-        </div>`
-      : '';
-
     candExamQuestionText.innerHTML = `
       <div class="slide-question-header">
         <div class="slide-q-badges">
-          <span class="slide-q-number">QUESTION ${currentSlideIndex + 1} OF ${total}</span>
+          <span class="slide-q-number">QUESTION ${currentActualQNum} OF ${totalActualQuestions}</span>
           <span class="slide-q-type-pill">${escapeHtml(typeBadgeText)}</span>
         </div>
         <span class="slide-q-points">${escapeHtml(pts)}</span>

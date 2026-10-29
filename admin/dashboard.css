@@ -3175,6 +3175,130 @@ body.shared-exam-builder-mode #setExamPageView {
   display: flex !important;
 }
 
+/* Standalone Shared Valuation Mode (via ?shareValuation=1&program=...&category=...) */
+body.shared-valuation-mode #adminSidebar,
+body.shared-valuation-mode .breadcrumb-container,
+body.shared-valuation-mode #programsView,
+body.shared-valuation-mode #candidatesView,
+body.shared-valuation-mode #questionView,
+body.shared-valuation-mode #setExamPageView,
+body.shared-valuation-mode #settingsView {
+  display: none !important;
+}
+
+body.shared-valuation-mode .admin-layout {
+  justify-content: center;
+  padding: 28px 24px;
+}
+
+body.shared-valuation-mode .admin-main {
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   Google Forms-Style Read-Only Section Card (No Question)
+   ========================================================================== */
+.gform-question-card.gform-section-card {
+  border-left: none;
+  border-top: 6px solid #166534;
+  background: linear-gradient(180deg, rgba(22, 101, 52, 0.04) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+.gform-q-num.section-badge {
+  background: rgba(22, 101, 52, 0.12);
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.25);
+  min-width: 58px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.gform-section-body-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gform-section-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  background: rgba(22, 101, 52, 0.07);
+  border: 1px solid rgba(22, 101, 52, 0.18);
+  color: #166534;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.gform-section-info-banner svg {
+  flex-shrink: 0;
+}
+
+.gform-section-content-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(30, 36, 43, 0.16);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  resize: vertical;
+  min-height: 96px;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.gform-section-content-input:focus {
+  border-color: #166534;
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.1);
+}
+
+.gform-section-footer-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #166534;
+  background: rgba(22, 101, 52, 0.08);
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
+.gform-main-add-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gform-section-add-btn,
+.builder-section-top-btn {
+  border-color: rgba(22, 101, 52, 0.3) !important;
+  color: #166534 !important;
+  background: rgba(22, 101, 52, 0.07) !important;
+}
+
+.gform-section-add-btn:hover,
+.builder-section-top-btn:hover {
+  background: rgba(22, 101, 52, 0.14) !important;
+  border-color: rgba(22, 101, 52, 0.45) !important;
+}
+
+.quick-type-btn.section-chip-btn {
+  border-color: rgba(22, 101, 52, 0.3);
+  color: #166534;
+  background: rgba(22, 101, 52, 0.06);
+  font-weight: 700;
+}
+
 /* ==========================================================================
    Responsive Adaptations
    ========================================================================== */
