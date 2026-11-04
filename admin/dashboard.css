@@ -1810,17 +1810,21 @@ html {
 
 .gform-q-prompt-input {
   width: 100%;
-  height: 42px;
-  padding: 0 14px;
+  min-height: 42px;
+  height: auto;
+  padding: 9px 14px;
   background: #ffffff;
   border: 1px solid rgba(30, 36, 43, 0.15);
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.9rem;
   font-weight: 600;
+  line-height: 1.45;
   color: var(--text-main);
+  resize: vertical;
+  overflow-y: hidden;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .gform-q-prompt-input:focus {
@@ -2120,15 +2124,22 @@ html {
 
 .gform-answer-key-input {
   width: 100%;
-  height: 36px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 6px 12px;
   background: #ffffff;
   border: 1px solid rgba(30, 36, 43, 0.14);
   border-radius: 6px;
   font-family: inherit;
   font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--text-main);
   outline: none;
+}
+
+.gform-answer-key-textarea {
+  min-height: 56px;
+  height: auto;
+  resize: vertical;
 }
 
 .gform-answer-key-input:focus {
@@ -2513,6 +2524,8 @@ html {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .val-q-type-label {

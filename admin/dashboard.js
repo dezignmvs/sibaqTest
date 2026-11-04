@@ -1487,11 +1487,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // HTML Sanitizer helper
+  // HTML & Attribute Sanitizer helper (escapes &, <, >, ", and ')
   function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Table Row Actions (Reopen Chance, Delete from IndexedDB & Edit)
@@ -1883,18 +1886,29 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  const PAIR_BASED_TYPES = new Set(['match', 'categorize', 'drag_drop', 'match_grid']);
+  const OPTION_BASED_TYPES = new Set(['mcq', 'radio', 'checkbox', 'dropdown', 'hotspot']);
+  const VISUAL_IMAGE_TYPES = new Set(['labeling', 'image_identify', 'hotspot']);
+
   function createDefaultQuestionData(type = 'mcq') {
     const isSection = type === 'section';
+    const isVisual = VISUAL_IMAGE_TYPES.has(type);
+    let defaultOpts = ['Option 1', 'Option 2'];
+    if (type === 'reorder') {
+      defaultOpts = ['Step 1 (First)', 'Step 2 (Second)', 'Step 3 (Third)'];
+    } else if (type === 'hotspot') {
+      defaultOpts = ['Zone A (Top-Left)', 'Zone B (Top-Right)', 'Zone C (Center)', 'Zone D (Bottom)'];
+    }
     return {
       id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type,
-      questionText: type === 'image_identify' ? 'Identify the picture shown below:' : '',
+      questionText: isVisual ? 'Identify / select the target in the picture shown below:' : '',
       sectionContent: '',
       imageUrl: '',
       imagePublicId: '',
       points: isSection ? 0 : 1,
       required: isSection ? false : true,
-      options: ['Option 1', 'Option 2'],
+      options: defaultOpts,
       correctAnswer: '',
       correctOptions: [],
       pairs: [
@@ -1956,7 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (examBuilderQuestionCount) {
       const qLabel = `${questionCounter} Question${questionCounter === 1 ? '' : 's'}`;
-      const sLabel = sectionCounter > 0 ? ` • ${sectionCounter} Section${sectionCounter === 1 ? '' : 's'}` : '';
+      const sLabel = sectionCounter > 0 ? ` • ${sectionCounter} Passage${sectionCounter === 1 ? '' : 's'}` : '';
       examBuilderQuestionCount.textContent = `${qLabel}${sLabel}`;
     }
     if (examBuilderTotalMarks) {
@@ -1964,11 +1978,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function autoResizeTextarea(el, minHeight = 42) {
+    if (!el) return;
+    const resize = () => {
+      el.style.height = 'auto';
+      el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`;
+    };
+    el.addEventListener('input', resize);
+    requestAnimationFrame(resize);
+  }
+
   function renderQuestionBodyByType(bodyContainer, qData) {
     const type = qData.type || 'mcq';
     bodyContainer.innerHTML = '';
 
-    // 0. Google Forms-Style Read-Only Section / Reading Passage (No Question)
+    // 0. Passage / Read-Only Section (No Question)
     if (type === 'section') {
       const sectionWrap = document.createElement('div');
       sectionWrap.className = 'gform-section-body-wrap';
@@ -1978,44 +2002,155 @@ document.addEventListener('DOMContentLoaded', () => {
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
           </svg>
-          <span><strong>Reading Section (No Question):</strong> Candidates will read this section on its own slide before continuing to the next questions. No answer input or marks are required.</span>
+          <span><strong>Passage (Read Only):</strong> Candidates read this passage on its own slide before continuing to the next questions. No answer input or marks are required.</span>
         </div>
-        <label class="gform-key-label">Section Reading Passage / Instructions to Read:</label>
+        <label class="gform-key-label">Passage / Full Text to Read:</label>
         <textarea
           class="gform-section-content-input"
-          rows="4"
-          placeholder="Write or paste the passage, story, instructions, or reference text here for students to read..."
+          rows="5"
+          placeholder="Write or paste the complete passage, story, instructions, or reference text here for students to read..."
         >${escapeHtml(qData.sectionContent || qData.answerKey || '')}</textarea>
       `;
       bodyContainer.appendChild(sectionWrap);
+      autoResizeTextarea(sectionWrap.querySelector('.gform-section-content-input'), 110);
       return;
     }
 
-    // 1. Multiple Choice (MCQ), Radio, Checkboxes, or Dropdown
-    if (type === 'mcq' || type === 'radio' || type === 'checkbox' || type === 'dropdown') {
+    // Optional attached passage/context on a question (if imported from JSON with passage/sectionContent)
+    if (qData.sectionContent && qData.sectionContent.trim()) {
+      const contextWrap = document.createElement('div');
+      contextWrap.className = 'gform-section-body-wrap';
+      contextWrap.style.marginBottom = '10px';
+      contextWrap.innerHTML = `
+        <label class="gform-key-label">Question Passage / Full Context Text:</label>
+        <textarea
+          class="gform-section-content-input"
+          rows="3"
+          placeholder="Supporting passage or context text for this question..."
+        >${escapeHtml(qData.sectionContent)}</textarea>
+      `;
+      bodyContainer.appendChild(contextWrap);
+      autoResizeTextarea(contextWrap.querySelector('.gform-section-content-input'), 78);
+    }
+
+    // 1. Reorder (Sequence / Ordering items in correct order)
+    if (type === 'reorder') {
       const optionsWrap = document.createElement('div');
       optionsWrap.className = 'gform-options-list';
 
+      const hintEl = document.createElement('div');
+      hintEl.className = 'gform-key-label';
+      hintEl.style.marginBottom = '4px';
+      hintEl.textContent = 'Enter items in their CORRECT sequence order (1st to last — automatically shuffled for candidates):';
+      bodyContainer.appendChild(hintEl);
+
       const opts = Array.isArray(qData.options) && qData.options.length > 0
         ? qData.options
+        : ['Step 1 (First)', 'Step 2 (Second)', 'Step 3 (Third)'];
+
+      const renderReorderRow = (optText = '', optIdx = 0) => {
+        const row = document.createElement('div');
+        row.className = 'gform-option-row';
+        row.innerHTML = `
+          <span class="gform-opt-num">${optIdx + 1}.</span>
+          <input
+            type="text"
+            class="gform-option-input"
+            value="${escapeHtml(optText)}"
+            placeholder="Sequence Step #${optIdx + 1}"
+          />
+          <span class="gform-correct-btn active" style="pointer-events: none;">Step #${optIdx + 1}</span>
+          <button type="button" class="gform-remove-opt-btn" title="Remove step">&times;</button>
+        `;
+        const optInputEl = row.querySelector('.gform-option-input');
+        if (optInputEl) optInputEl.value = optText;
+
+        row.querySelector('.gform-remove-opt-btn')?.addEventListener('click', () => {
+          if (optionsWrap.querySelectorAll('.gform-option-row').length > 2) {
+            row.remove();
+            optionsWrap.querySelectorAll('.gform-option-row').forEach((r, i) => {
+              const n = r.querySelector('.gform-opt-num');
+              const b = r.querySelector('.gform-correct-btn');
+              if (n) n.textContent = `${i + 1}.`;
+              if (b) b.textContent = `Step #${i + 1}`;
+            });
+          } else {
+            showToast('At least two steps are required for Reorder');
+          }
+        });
+        return row;
+      };
+
+      opts.forEach((opt, i) => optionsWrap.appendChild(renderReorderRow(opt, i)));
+
+      const addStepBtn = document.createElement('button');
+      addStepBtn.type = 'button';
+      addStepBtn.className = 'gform-add-opt-btn';
+      addStepBtn.innerHTML = `<span>+ Add Sequence Step</span>`;
+      addStepBtn.addEventListener('click', () => {
+        const count = optionsWrap.querySelectorAll('.gform-option-row').length;
+        const newRow = renderReorderRow(`Step ${count + 1}`, count);
+        optionsWrap.appendChild(newRow);
+        const inp = newRow.querySelector('.gform-option-input');
+        if (inp) {
+          inp.focus();
+          inp.select();
+        }
+      });
+
+      bodyContainer.appendChild(optionsWrap);
+      bodyContainer.appendChild(addStepBtn);
+      return;
+    }
+
+    // 2. Option-Based Types: Multiple choice (mcq), Multi-select (checkbox), Dropdown, Hot text, Hotspot, Radio
+    if (OPTION_BASED_TYPES.has(type)) {
+      const optionsWrap = document.createElement('div');
+      optionsWrap.className = 'gform-options-list';
+
+      if (type === 'hotspot' || type === 'hot_text') {
+        const subHint = document.createElement('div');
+        subHint.className = 'gform-key-label';
+        subHint.style.marginBottom = '4px';
+        subHint.textContent =
+          type === 'hotspot'
+            ? 'Define Hotspot target zones / regions on the picture above and mark the correct zone:'
+            : 'Define selectable Hot Text phrases / words and mark the correct answer(s):';
+        bodyContainer.appendChild(subHint);
+      }
+
+      const opts = Array.isArray(qData.options) && qData.options.length > 0
+        ? qData.options
+        : type === 'hotspot'
+        ? ['Zone A (Top-Left)', 'Zone B (Top-Right)', 'Zone C (Center)', 'Zone D (Bottom)']
         : ['Option 1', 'Option 2'];
+
+      const isMultiCorrect = type === 'checkbox' || type === 'hot_text';
+      const isDropdown = type === 'dropdown';
 
       const renderOptionRow = (optText = '', optIdx = 0) => {
         const row = document.createElement('div');
         row.className = 'gform-option-row';
 
-        const isCheckbox = type === 'checkbox';
-        const isDropdown = type === 'dropdown';
-        const isMarkedCorrect = isCheckbox
-          ? (Array.isArray(qData.correctOptions) && qData.correctOptions.includes(optText) && optText !== '')
-          : (qData.correctAnswer && qData.correctAnswer === optText && optText !== '');
+        const isMarkedCorrect = isMultiCorrect
+          ? ((Array.isArray(qData.correctOptions) && qData.correctOptions.includes(optText)) ||
+              (qData.correctAnswer && qData.correctAnswer === optText)) &&
+            optText !== ''
+          : qData.correctAnswer && qData.correctAnswer === optText && optText !== '';
 
         let indicatorHtml = `<span class="gform-opt-indicator radio-ind"></span>`;
-        if (isCheckbox) {
+        if (isMultiCorrect) {
           indicatorHtml = `<span class="gform-opt-indicator checkbox-ind"></span>`;
         } else if (isDropdown) {
           indicatorHtml = `<span class="gform-opt-num">${optIdx + 1}.</span>`;
         }
+
+        const optPlaceholder =
+          type === 'hotspot'
+            ? `Hotspot Zone ${optIdx + 1}`
+            : type === 'hot_text'
+            ? `Selectable text segment ${optIdx + 1}`
+            : `Option ${optIdx + 1}`;
 
         row.innerHTML = `
           ${indicatorHtml}
@@ -2023,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             type="text"
             class="gform-option-input"
             value="${escapeHtml(optText)}"
-            placeholder="Option ${optIdx + 1}"
+            placeholder="${optPlaceholder}"
           />
           <button
             type="button"
@@ -2038,10 +2173,13 @@ document.addEventListener('DOMContentLoaded', () => {
           <button type="button" class="gform-remove-opt-btn" title="Remove option">&times;</button>
         `;
 
+        const optInputEl = row.querySelector('.gform-option-input');
+        if (optInputEl) optInputEl.value = optText;
+
         const correctBtn = row.querySelector('.gform-correct-btn');
         if (correctBtn) {
           correctBtn.addEventListener('click', () => {
-            if (!isCheckbox) {
+            if (!isMultiCorrect) {
               optionsWrap.querySelectorAll('.gform-correct-btn').forEach((b) => {
                 if (b !== correctBtn) b.classList.remove('active');
               });
@@ -2055,7 +2193,6 @@ document.addEventListener('DOMContentLoaded', () => {
           removeOptBtn.addEventListener('click', () => {
             if (optionsWrap.querySelectorAll('.gform-option-row').length > 1) {
               row.remove();
-              // Renumber dropdown indices if needed
               optionsWrap.querySelectorAll('.gform-option-row').forEach((r, i) => {
                 const n = r.querySelector('.gform-opt-num');
                 if (n) n.textContent = `${i + 1}.`;
@@ -2076,10 +2213,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const addOptBtn = document.createElement('button');
       addOptBtn.type = 'button';
       addOptBtn.className = 'gform-add-opt-btn';
-      addOptBtn.innerHTML = `<span>+ Add Option</span>`;
+      addOptBtn.innerHTML = `<span>${type === 'hotspot' ? '+ Add Hotspot Zone' : type === 'hot_text' ? '+ Add Hot Text Segment' : '+ Add Option'}</span>`;
       addOptBtn.addEventListener('click', () => {
         const count = optionsWrap.querySelectorAll('.gform-option-row').length;
-        const newRow = renderOptionRow(`Option ${count + 1}`, count);
+        const newRow = renderOptionRow(
+          type === 'hotspot' ? `Zone ${String.fromCharCode(65 + count)}` : `Option ${count + 1}`,
+          count
+        );
         optionsWrap.appendChild(newRow);
         const inp = newRow.querySelector('.gform-option-input');
         if (inp) {
@@ -2093,17 +2233,58 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 2. Match the Following
-    if (type === 'match') {
+    // 3. Pair / Table / Category / Drag-and-Drop / Matrix Grid Types:
+    //    match, table_fill, categorize, drag_drop, match_grid
+    if (PAIR_BASED_TYPES.has(type)) {
       const matchWrap = document.createElement('div');
       matchWrap.className = 'gform-match-list';
+
+      const pairMetaMap = {
+        match: {
+          colA: 'Column A (Premise / Item)',
+          colB: 'Column B (Correct Match)',
+          phA: 'Column A Item',
+          phB: 'Column B Match',
+          btnText: '+ Add Match Pair'
+        },
+        table_fill: {
+          colA: 'Table Row / Field Header',
+          colB: 'Expected Fill-In Cell Value',
+          phA: 'Row Prompt / Field',
+          phB: 'Correct Cell Answer',
+          btnText: '+ Add Table Row'
+        },
+        categorize: {
+          colA: 'Item to Categorize',
+          colB: 'Correct Category Name',
+          phA: 'Item / Statement',
+          phB: 'Category (e.g. Hardware / Software)',
+          btnText: '+ Add Item & Category'
+        },
+        drag_drop: {
+          colA: 'Target Slot / Sentence Blank',
+          colB: 'Correct Draggable Item',
+          phA: 'Slot / Blank Prompt',
+          phB: 'Draggable Word / Item',
+          btnText: '+ Add Drag & Drop Slot'
+        },
+        match_grid: {
+          colA: 'Grid Row Item',
+          colB: 'Matched Column Header',
+          phA: 'Row Statement / Item',
+          phB: 'Column Header Name',
+          btnText: '+ Add Grid Row'
+        }
+      };
+
+      const meta = pairMetaMap[type] || pairMetaMap.match;
 
       const headerRow = document.createElement('div');
       headerRow.className = 'gform-match-header';
       headerRow.innerHTML = `
-        <span>Column A (Premise / Item)</span>
+        <span>${meta.colA}</span>
         <span></span>
-        <span>Column B (Correct Match)</span>
+        <span>${meta.colB}</span>
         <span></span>
       `;
       matchWrap.appendChild(headerRow);
@@ -2123,17 +2304,22 @@ document.addEventListener('DOMContentLoaded', () => {
             type="text"
             class="gform-match-left"
             value="${escapeHtml(pair.left)}"
-            placeholder="Column A Item #${pIdx + 1}"
+            placeholder="${meta.phA} #${pIdx + 1}"
           />
           <span class="gform-match-arrow">&harr;</span>
           <input
             type="text"
             class="gform-match-right"
             value="${escapeHtml(pair.right)}"
-            placeholder="Column B Match #${pIdx + 1}"
+            placeholder="${meta.phB} #${pIdx + 1}"
           />
-          <button type="button" class="gform-remove-opt-btn" title="Remove pair">&times;</button>
+          <button type="button" class="gform-remove-opt-btn" title="Remove row">&times;</button>
         `;
+
+        const leftInpEl = row.querySelector('.gform-match-left');
+        const rightInpEl = row.querySelector('.gform-match-right');
+        if (leftInpEl) leftInpEl.value = pair.left || '';
+        if (rightInpEl) rightInpEl.value = pair.right || '';
 
         const delPairBtn = row.querySelector('.gform-remove-opt-btn');
         if (delPairBtn) {
@@ -2141,7 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (matchWrap.querySelectorAll('.gform-match-row').length > 1) {
               row.remove();
             } else {
-              showToast('At least one match pair is required');
+              showToast('At least one row is required');
             }
           });
         }
@@ -2155,7 +2341,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const addPairBtn = document.createElement('button');
       addPairBtn.type = 'button';
       addPairBtn.className = 'gform-add-opt-btn';
-      addPairBtn.innerHTML = `<span>+ Add Match Pair</span>`;
+      addPairBtn.innerHTML = `<span>${meta.btnText}</span>`;
       addPairBtn.addEventListener('click', () => {
         const count = matchWrap.querySelectorAll('.gform-match-row').length;
         const newRow = renderPairRow({ left: '', right: '' }, count);
@@ -2169,7 +2355,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 3. True / False
+    // 4. True / False
     if (type === 'true_false') {
       const tfWrap = document.createElement('div');
       tfWrap.className = 'gform-tf-group';
@@ -2196,44 +2382,57 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 4. Picture Identification, Short Answer, or Long Answer
-    const isLong = type === 'long_answer';
-    const isImageIdentify = type === 'image_identify';
+    // 5. Fill in the blanks (fill_blank / short_answer), Open ended (open_ended / long_answer), or Labeling (labeling / image_identify)
+    const isLong = type === 'open_ended' || type === 'long_answer';
+    const isImageIdentify = type === 'labeling' || type === 'image_identify';
     const textPreviewWrap = document.createElement('div');
     textPreviewWrap.className = 'gform-text-answer-wrap';
     textPreviewWrap.innerHTML = `
       <div class="gform-answer-preview ${isLong ? 'long-preview' : 'short-preview'}">
         <span>${
           isImageIdentify
-            ? 'Candidate views the uploaded picture above and types their identification answer'
+            ? 'Candidate views the uploaded diagram / picture above and types the label / identification answer'
             : isLong
-            ? 'Candidate Long Answer / Paragraph text area'
-            : 'Candidate Short Answer text field'
+            ? 'Candidate Open-Ended / Paragraph response text area'
+            : 'Candidate Fill-in-the-Blanks / Short Answer text field'
         }</span>
       </div>
       <div class="gform-answer-key-row">
         <label class="gform-key-label">${
           isImageIdentify
-            ? 'Correct Picture Identification Name / Key (Optional):'
+            ? 'Correct Label / Picture Identification Key (Optional):'
             : isLong
-            ? 'Grading Rubric / Reference Answer (Optional):'
-            : 'Expected Correct Answer Key (Optional):'
+            ? 'Open-Ended Grading Rubric / Full Reference Answer (Optional):'
+            : 'Expected Fill-in-the-Blank Answer Key (Optional):'
         }</label>
-        <input
-          type="text"
-          class="gform-answer-key-input"
-          value="${escapeHtml(qData.answerKey || qData.correctAnswer || '')}"
-          placeholder="${
-            isImageIdentify
-              ? 'e.g. Al-Aqsa Mosque / Ibn Khaldun...'
-              : isLong
-              ? 'Enter key points or reference answer...'
-              : 'Enter exact expected answer...'
-          }"
-        />
+        ${
+          isLong
+            ? `<textarea
+                class="gform-answer-key-input gform-answer-key-textarea"
+                rows="2"
+                placeholder="Enter full key points or reference answer..."
+              >${escapeHtml(qData.answerKey || qData.correctAnswer || '')}</textarea>`
+            : `<input
+                type="text"
+                class="gform-answer-key-input"
+                value="${escapeHtml(qData.answerKey || qData.correctAnswer || '')}"
+                placeholder="${
+                  isImageIdentify
+                    ? 'e.g. Al-Aqsa Mosque / Mitochondria / Ibn Khaldun...'
+                    : 'Enter exact expected blank answer...'
+                }"
+              />`
+        }
       </div>
     `;
     bodyContainer.appendChild(textPreviewWrap);
+    const keyInpEl = textPreviewWrap.querySelector('.gform-answer-key-input');
+    if (keyInpEl) {
+      keyInpEl.value = qData.answerKey || qData.correctAnswer || '';
+    }
+    if (isLong) {
+      autoResizeTextarea(textPreviewWrap.querySelector('.gform-answer-key-textarea'), 54);
+    }
   }
 
   function extractQuestionDataFromCard(card) {
@@ -2249,12 +2448,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const required = isSection ? false : (reqCheckbox ? reqCheckbox.checked : true);
     const imageUrl = card.getAttribute('data-image-url') || '';
     const imagePublicId = card.getAttribute('data-image-public-id') || '';
+    const secInput = card.querySelector('.gform-section-content-input');
+    const sectionContent = secInput ? secInput.value.trim() : '';
 
     const data = {
       id: card.getAttribute('data-q-id') || `q_${Date.now()}`,
       type,
       questionText,
-      sectionContent: '',
+      sectionContent,
       imageUrl,
       imagePublicId,
       points,
@@ -2267,12 +2468,21 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (isSection) {
-      const secInput = card.querySelector('.gform-section-content-input');
-      data.sectionContent = secInput ? secInput.value.trim() : '';
       return data;
     }
 
-    if (type === 'mcq' || type === 'radio' || type === 'checkbox' || type === 'dropdown') {
+    if (type === 'reorder') {
+      const optRows = card.querySelectorAll('.gform-option-row');
+      optRows.forEach((r) => {
+        const val = r.querySelector('.gform-option-input')?.value.trim() || '';
+        if (val) {
+          data.options.push(val);
+        }
+      });
+      data.correctOptions = [...data.options];
+      data.correctAnswer = data.options.join(' -> ');
+    } else if (OPTION_BASED_TYPES.has(type)) {
+      const isMultiCorrect = type === 'checkbox' || type === 'hot_text';
       const optRows = card.querySelectorAll('.gform-option-row');
       optRows.forEach((r) => {
         const val = r.querySelector('.gform-option-input')?.value.trim() || '';
@@ -2280,7 +2490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (val) {
           data.options.push(val);
           if (isCorrect) {
-            if (type === 'checkbox') {
+            if (isMultiCorrect) {
               data.correctOptions.push(val);
             } else {
               data.correctAnswer = val;
@@ -2288,7 +2498,10 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       });
-    } else if (type === 'match') {
+      if (isMultiCorrect && data.correctOptions.length === 1 && !data.correctAnswer) {
+        data.correctAnswer = data.correctOptions[0];
+      }
+    } else if (PAIR_BASED_TYPES.has(type)) {
       const pairRows = card.querySelectorAll('.gform-match-row');
       pairRows.forEach((r) => {
         const left = r.querySelector('.gform-match-left')?.value.trim() || '';
@@ -2318,7 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const imageUrl = card.getAttribute('data-image-url') || '';
     const isUploading = card.getAttribute('data-image-uploading') === 'true';
-    const isIdentifyType = typeSelect && typeSelect.value === 'image_identify';
+    const isIdentifyType = typeSelect && VISUAL_IMAGE_TYPES.has(typeSelect.value);
 
     if (isUploading) {
       imgContainer.style.display = 'block';
@@ -2368,14 +2581,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isIdentifyType) {
       imgContainer.style.display = 'block';
       imgContainer.innerHTML = `
-        <div class="gform-img-dropzone" title="Click to upload a picture to identify">
+        <div class="gform-img-dropzone" title="Click to upload a picture for Labeling / Hotspot">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <circle cx="8.5" cy="8.5" r="1.5"></circle>
             <polyline points="21 15 16 10 5 21"></polyline>
           </svg>
           <div class="dropzone-text-group">
-            <strong>Upload Picture for Identification</strong>
+            <strong>Upload Picture for Labeling / Hotspot</strong>
             <span>Click to choose an image (uploads via Cloudinary <code>${CLOUDINARY_UPLOAD_PRESET}</code>)</span>
           </div>
         </div>
@@ -2399,24 +2612,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const isSectionInit = qData.type === 'section';
     const promptPlaceholder = isSectionInit
-      ? 'Enter Section Title / Heading (e.g. Part 1: Read the Passage Below)...'
-      : 'Enter your question prompt here (e.g. Identify this picture)...';
+      ? 'Enter Passage Title / Heading (e.g. Part 1: Read the Passage Below)...'
+      : 'Enter your question prompt here...';
+
+    // Map legacy aliases to their canonical option value for the select dropdown
+    const rawType = qData.type || 'mcq';
+    const selectTypeVal =
+      rawType === 'short_answer'
+        ? 'fill_blank'
+        : rawType === 'long_answer'
+        ? 'open_ended'
+        : rawType === 'image_identify'
+        ? 'labeling'
+        : rawType === 'radio'
+        ? 'mcq'
+        : rawType;
+    qData.type = selectTypeVal;
 
     card.innerHTML = `
       <div class="gform-q-top-row">
         <span class="gform-q-num">${isSectionInit ? 'SEC' : 'Q1'}</span>
         <div class="gform-q-prompt-wrap">
-          <input
-            type="text"
+          <textarea
             class="gform-q-prompt-input"
-            value="${escapeHtml(qData.questionText || '')}"
+            rows="1"
             placeholder="${promptPlaceholder}"
             required
-          />
+          >${escapeHtml(qData.questionText || '')}</textarea>
           <span class="field-error gform-q-error"></span>
         </div>
 
-        <button type="button" class="gform-upload-img-btn" title="Upload picture for this question or section (Cloudinary)">
+        <button type="button" class="gform-upload-img-btn" title="Upload picture for this question or passage (Cloudinary)">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -2428,16 +2654,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="gform-q-type-wrap">
           <select class="gform-q-type-select" aria-label="Question Type">
-            <option value="section" ${qData.type === 'section' ? 'selected' : ''}>Section / Reading Passage (No Question)</option>
-            <option value="mcq" ${qData.type === 'mcq' ? 'selected' : ''}>Multiple Choice (MCQ)</option>
-            <option value="image_identify" ${qData.type === 'image_identify' ? 'selected' : ''}>Picture / Identify It</option>
-            <option value="match" ${qData.type === 'match' ? 'selected' : ''}>Match the Following</option>
-            <option value="checkbox" ${qData.type === 'checkbox' ? 'selected' : ''}>Checkboxes</option>
-            <option value="radio" ${qData.type === 'radio' ? 'selected' : ''}>Radio Buttons</option>
-            <option value="short_answer" ${qData.type === 'short_answer' ? 'selected' : ''}>Short Answer</option>
-            <option value="long_answer" ${qData.type === 'long_answer' ? 'selected' : ''}>Long Answer / Paragraph</option>
-            <option value="dropdown" ${qData.type === 'dropdown' ? 'selected' : ''}>Dropdown</option>
-            <option value="true_false" ${qData.type === 'true_false' ? 'selected' : ''}>True / False</option>
+            <optgroup label="Basic">
+              <option value="mcq" ${selectTypeVal === 'mcq' ? 'selected' : ''}>Multiple choice</option>
+              <option value="checkbox" ${selectTypeVal === 'checkbox' ? 'selected' : ''}>Multi-select</option>
+              <option value="true_false" ${selectTypeVal === 'true_false' ? 'selected' : ''}>True or false</option>
+            </optgroup>
+            <optgroup label="Interactive &amp; higher order">
+              <option value="drag_drop" ${selectTypeVal === 'drag_drop' ? 'selected' : ''}>Drag and drop</option>
+              <option value="dropdown" ${selectTypeVal === 'dropdown' ? 'selected' : ''}>Dropdown</option>
+              <option value="categorize" ${selectTypeVal === 'categorize' ? 'selected' : ''}>Categorize</option>
+              <option value="reorder" ${selectTypeVal === 'reorder' ? 'selected' : ''}>Reorder</option>
+              <option value="match" ${selectTypeVal === 'match' ? 'selected' : ''}>Match</option>
+              <option value="match_grid" ${selectTypeVal === 'match_grid' ? 'selected' : ''}>Match Table Grid</option>
+            </optgroup>
+            <optgroup label="Visual learning">
+              <option value="labeling" ${selectTypeVal === 'labeling' ? 'selected' : ''}>Labeling</option>
+              <option value="hotspot" ${selectTypeVal === 'hotspot' ? 'selected' : ''}>Hotspot</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -2451,7 +2684,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
           </svg>
-          <span>Read-Only Section • No Question Answer / 0 Pts</span>
+          <span>Read-Only Passage • No Question Answer / 0 Pts</span>
         </div>
         <div class="gform-points-box" style="display: ${isSectionInit ? 'none' : 'flex'};">
           <label>Points:</label>
@@ -2500,8 +2733,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const dupBtn = card.querySelector('.gform-dup-q-btn');
     const delBtn = card.querySelector('.gform-delete-q-btn');
 
+    if (promptInput) {
+      promptInput.value = qData.questionText || '';
+    }
     renderQuestionImageBox(card);
     renderQuestionBodyByType(bodyContainer, qData);
+    autoResizeTextarea(promptInput, 42);
 
     if (uploadImgBtn && fileInput) {
       uploadImgBtn.addEventListener('click', () => {
@@ -2556,15 +2793,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (promptInput) {
           promptInput.placeholder =
             typeSelect.value === 'section'
-              ? 'Enter Section Title / Heading (e.g. Part 1: Read the Passage Below)...'
-              : 'Enter your question prompt here (e.g. Identify this picture)...';
+              ? 'Enter Passage Title / Heading (e.g. Part 1: Read the Passage Below)...'
+              : 'Enter your question prompt here...';
         }
-        if (typeSelect.value === 'image_identify' && promptInput && !promptInput.value.trim()) {
-          promptInput.value = 'Identify the picture shown below:';
+        if (VISUAL_IMAGE_TYPES.has(typeSelect.value) && promptInput && !promptInput.value.trim()) {
+          promptInput.value = 'Identify / select the target in the picture shown below:';
           currentExtracted.questionText = promptInput.value;
         }
         if (currentExtracted.options.length === 0) {
-          currentExtracted.options = ['Option 1', 'Option 2'];
+          currentExtracted.options =
+            typeSelect.value === 'reorder'
+              ? ['Step 1 (First)', 'Step 2 (Second)', 'Step 3 (Third)']
+              : typeSelect.value === 'hotspot'
+              ? ['Zone A (Top-Left)', 'Zone B (Top-Right)', 'Zone C (Center)', 'Zone D (Bottom)']
+              : ['Option 1', 'Option 2'];
         }
         if (currentExtracted.pairs.length === 0) {
           currentExtracted.pairs = [
@@ -2956,32 +3198,80 @@ document.addEventListener('DOMContentLoaded', () => {
   let userChangedBulkTypeExplicitly = false;
 
   const BULK_TYPE_LABELS = {
-    mcq: 'MCQ',
-    match: 'Match the Following',
-    checkbox: 'Checkbox',
-    radio: 'Radio',
-    short_answer: 'Short Answer',
-    long_answer: 'Long Answer',
-    image_identify: 'Picture / Identify',
-    true_false: 'True / False',
+    mcq: 'Multiple choice',
+    checkbox: 'Multi-select',
+    true_false: 'True or false',
+    drag_drop: 'Drag and drop',
     dropdown: 'Dropdown',
-    section: 'Section (Read Only)'
+    categorize: 'Categorize',
+    reorder: 'Reorder',
+    match: 'Match',
+    match_grid: 'Match Table Grid',
+    labeling: 'Labeling',
+    hotspot: 'Hotspot',
+    radio: 'Multiple choice',
+    image_identify: 'Labeling'
   };
 
   const BULK_SAMPLE_OBJECTS = {
-    section: {
-      type: 'section',
-      questionText: 'Part A: Read the Passage Carefully',
-      sectionContent: 'Read the following passage carefully before answering the next questions...',
-      points: 0,
-      required: false
-    },
     mcq: {
       type: 'mcq',
       questionText: 'What is the capital of India?',
       options: ['Mumbai', 'New Delhi', 'Kolkata', 'Chennai'],
       correctAnswer: 'New Delhi',
       points: 1,
+      required: true
+    },
+    checkbox: {
+      type: 'checkbox',
+      questionText: 'Which of the following are programming languages? (Multi-select)',
+      options: ['Python', 'HTML', 'JavaScript', 'CSS'],
+      correctOptions: ['Python', 'JavaScript'],
+      points: 2,
+      required: true
+    },
+    true_false: {
+      type: 'true_false',
+      questionText: 'The sun rises in the East.',
+      options: ['True', 'False'],
+      correctAnswer: 'True',
+      points: 1,
+      required: true
+    },
+    drag_drop: {
+      type: 'drag_drop',
+      questionText: 'Drag and drop the correct term into each target slot:',
+      pairs: [
+        { left: 'Connects muscle to bone', right: 'Tendon' },
+        { left: 'Connects bone to bone', right: 'Ligament' }
+      ],
+      points: 2,
+      required: true
+    },
+    dropdown: {
+      type: 'dropdown',
+      questionText: 'Select the correct festival category:',
+      options: ['Bidaya', 'Ūlā', 'Thāniya', 'Thānawiyya', 'Āliya'],
+      correctAnswer: 'Āliya',
+      points: 1,
+      required: true
+    },
+    categorize: {
+      type: 'categorize',
+      questionText: 'Categorize each item into its correct group:',
+      pairs: [
+        { left: 'Naskh', right: 'Arabic Script' },
+        { left: 'Thuluth', right: 'Arabic Script' },
+        { left: 'Astrolabe', right: 'Scientific Instrument' }
+      ],
+      points: 3,
+      required: true
+    },
+    reorder: {
+      type: 'reorder',
+      questionText: 'Arrange the following historical eras in chronological order (earliest to latest):',
+      options: ['Rashidun Caliphate', 'Umayyad Caliphate', 'Abbasid Caliphate', 'Ottoman Empire'],
+      points: 2,
       required: true
     },
     match: {
@@ -2994,58 +3284,32 @@ document.addEventListener('DOMContentLoaded', () => {
       points: 2,
       required: true
     },
-    checkbox: {
-      type: 'checkbox',
-      questionText: 'Which of the following are programming languages?',
-      options: ['Python', 'HTML', 'JavaScript', 'CSS'],
-      correctOptions: ['Python', 'JavaScript'],
-      points: 2,
+    match_grid: {
+      type: 'match_grid',
+      questionText: 'Match each scholar in the rows with their primary field in the column grid:',
+      pairs: [
+        { left: 'Ibn Sina', right: 'Medicine' },
+        { left: 'Al-Khwarizmi', right: 'Mathematics' },
+        { left: 'Ibn Battuta', right: 'Geography & Travel' }
+      ],
+      points: 3,
       required: true
     },
-    radio: {
-      type: 'radio',
-      questionText: 'Choose the correct single option:',
-      options: ['Option A', 'Option B', 'Option C'],
-      correctAnswer: 'Option A',
-      points: 1,
-      required: true
-    },
-    short_answer: {
-      type: 'short_answer',
-      questionText: "Who wrote the book 'Muqaddimah'?",
-      answerKey: 'Ibn Khaldun',
-      points: 2,
-      required: true
-    },
-    long_answer: {
-      type: 'long_answer',
-      questionText: 'Explain the significance and styles of Islamic calligraphy.',
-      answerKey: 'Include Kufic, Naskh, Thuluth, and architectural uses.',
-      points: 5,
-      required: true
-    },
-    image_identify: {
-      type: 'image_identify',
-      questionText: 'Identify the historical monument shown in the picture:',
+    labeling: {
+      type: 'labeling',
+      questionText: 'Identify / label the historical monument shown in the picture:',
       imageUrl: 'https://res.cloudinary.com/da6fjyirm/image/upload/sample.jpg',
       answerKey: 'Al-Aqsa Mosque',
       points: 2,
       required: true
     },
-    true_false: {
-      type: 'true_false',
-      questionText: 'The sun rises in the East.',
-      options: ['True', 'False'],
-      correctAnswer: 'True',
-      points: 1,
-      required: true
-    },
-    dropdown: {
-      type: 'dropdown',
-      questionText: 'Select the correct festival category:',
-      options: ['Bidaya', 'Ūlā', 'Thāniya', 'Thānawiyya', 'Āliya'],
-      correctAnswer: 'Āliya',
-      points: 1,
+    hotspot: {
+      type: 'hotspot',
+      questionText: 'Select the correct Hotspot target zone on the diagram above:',
+      imageUrl: 'https://res.cloudinary.com/da6fjyirm/image/upload/sample.jpg',
+      options: ['Zone A (Top-Left)', 'Zone B (Top-Right)', 'Zone C (Center)', 'Zone D (Bottom)'],
+      correctAnswer: 'Zone C (Center)',
+      points: 2,
       required: true
     }
   };
@@ -3070,24 +3334,28 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildDynamicChatGptPrompt() {
     const selectedTypes = getSelectedBulkTypesArray();
     const typesListStr = selectedTypes.map((t) => `"${t}"`).join(', ');
-    return `You are an exam data converter for the Sibaq '26 Exam Portal.
-Convert the raw bulk questions/text I provide below into a single valid JSON array containing multiple question types.
+    return `You are an expert Exam JSON Converter for the Sibaq '26 Exam Portal.
+Convert the raw bulk exam text and questions I provide below into a SINGLE valid JSON array [ ... ] supporting all 11 question types (Wayground / Quizizz model).
 
-OUTPUT RULES:
-1. Output ONLY raw, valid JSON (an array [ ... ]). Do NOT include extra commentary outside the JSON block.
-2. Preferred / Selected "type" values for this exam: ${typesListStr}
-   (All supported types: "mcq", "checkbox", "radio", "dropdown", "true_false", "match", "short_answer", "long_answer", "image_identify", "section").
-3. Schema per item type in the same JSON array:
-- "section" (reading passage / instructions with no question): { "type": "section", "questionText": "Part A: Reading Section", "sectionContent": "Passage text...", "points": 0, "required": false }
-- "mcq" / "radio" / "dropdown": { "type": "mcq", "questionText": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B", "points": 1, "required": true }
-- "checkbox" (multiple correct): { "type": "checkbox", "questionText": "...", "options": ["Opt 1", "Opt 2", "Opt 3"], "correctOptions": ["Opt 1", "Opt 3"], "points": 2, "required": true }
-- "match" (match the following): { "type": "match", "questionText": "...", "pairs": [{ "left": "Item A", "right": "Match 1" }, { "left": "Item B", "right": "Match 2" }], "points": 2, "required": true }
-- "true_false": { "type": "true_false", "questionText": "...", "options": ["True", "False"], "correctAnswer": "True", "points": 1, "required": true }
-- "short_answer" / "long_answer" / "image_identify": { "type": "short_answer", "questionText": "...", "answerKey": "...", "points": 1, "required": true }
+CRITICAL FULL-TEXT & COMPLETENESS RULES:
+1. LOAD 100% OF THE FULL TEXT: NEVER summarize, shorten, paraphrase, or truncate any question prompt, option, or answer key with "...". Copy the 100% complete, unabridged, word-for-word full text into the JSON fields.
+2. CONVERT EVERY SINGLE ITEM: Convert ALL questions from start to finish without skipping any items.
+3. MULTI-LINE TEXT: Preserve all paragraphs and multi-line statements using \\n inside JSON strings so the JSON is 100% valid.
+4. Output ONLY raw, valid JSON (a single array [ ... ]). Do NOT include extra commentary outside the JSON block.
+5. Preferred / Selected "type" values for this exam: ${typesListStr}
+   (All 11 supported "type" values: "mcq" [Multiple choice], "checkbox" [Multi-select], "true_false" [True or false], "drag_drop" [Drag and drop], "dropdown" [Dropdown], "categorize" [Categorize], "reorder" [Reorder], "match" [Match], "match_grid" [Match Table Grid], "labeling" [Labeling], "hotspot" [Hotspot]).
+6. Schema per item type in the same JSON array:
+- "mcq" / "dropdown": { "type": "mcq", "questionText": "Full question text", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B", "points": 1, "required": true }
+- "checkbox" (Multi-select): { "type": "checkbox", "questionText": "Full question text", "options": ["Opt 1", "Opt 2", "Opt 3"], "correctOptions": ["Opt 1", "Opt 3"], "points": 2, "required": true }
+- "true_false": { "type": "true_false", "questionText": "Full statement", "options": ["True", "False"], "correctAnswer": "True", "points": 1, "required": true }
+- "drag_drop" / "categorize" / "match" / "match_grid": { "type": "match", "questionText": "Full question text", "pairs": [{ "left": "Item / Premise / Target", "right": "Match / Dropped Token / Category" }], "points": 2, "required": true }
+- "reorder": { "type": "reorder", "questionText": "Arrange in the correct order:", "options": ["First item", "Second item", "Third item"], "points": 2, "required": true }
+- "labeling": { "type": "labeling", "questionText": "Identify / label the diagram:", "imageUrl": "", "answerKey": "Expected label", "points": 2, "required": true }
+- "hotspot": { "type": "hotspot", "questionText": "Select the target zone on the image:", "imageUrl": "", "options": ["Zone A", "Zone B", "Zone C"], "correctAnswer": "Zone B", "points": 2, "required": true }
 
-Strip question numbers (like "1.", "Q1)") and option prefixes (like "A)", "(a)") so only clean text remains.
+Strip leading question numbers (like "1.", "Q1)") and option prefixes (like "A)", "(a)") while keeping 100% of the actual text intact.
 
-Now convert the following bulk questions (which may include multiple question types) into a single JSON array:
+Now convert the following bulk exam text (keeping 100% of the full text for every question, option, and answer) into a single JSON array:
 
 `;
   }
@@ -3104,71 +3372,226 @@ Now convert the following bulk questions (which may include multiple question ty
 
   function normalizeQuestionTypeString(rawType) {
     if (!rawType) return '';
-    const t = String(rawType).trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const t = String(rawType).trim().toLowerCase().replace(/[\s-&/]+/g, '_');
     const map = {
       mcq: 'mcq',
       multiple_choice: 'mcq',
       multiplechoice: 'mcq',
       choice: 'mcq',
-      radio: 'radio',
-      radio_buttons: 'radio',
-      single_choice: 'radio',
+      single_choice: 'mcq',
+      radio: 'mcq',
+      radio_buttons: 'mcq',
       checkbox: 'checkbox',
       checkboxes: 'checkbox',
-      multiple_select: 'checkbox',
       multi_select: 'checkbox',
-      match: 'match',
-      matching: 'match',
-      match_the_following: 'match',
-      short_answer: 'short_answer',
-      short: 'short_answer',
-      text: 'short_answer',
-      long_answer: 'long_answer',
-      long: 'long_answer',
-      paragraph: 'long_answer',
-      essay: 'long_answer',
-      image_identify: 'image_identify',
-      image: 'image_identify',
-      picture: 'image_identify',
-      identify: 'image_identify',
-      dropdown: 'dropdown',
-      select: 'dropdown',
+      multiselect: 'checkbox',
+      multiple_select: 'checkbox',
+      multiple_selection: 'checkbox',
       true_false: 'true_false',
+      true_or_false: 'true_false',
       boolean: 'true_false',
       tf: 'true_false',
+      fill_blank: 'fill_blank',
+      fill_in_the_blanks: 'fill_blank',
+      fill_in_the_blank: 'fill_blank',
+      fill_blanks: 'fill_blank',
+      blank: 'fill_blank',
+      blanks: 'fill_blank',
+      short_answer: 'fill_blank',
+      short: 'fill_blank',
+      one_word: 'fill_blank',
+      text: 'fill_blank',
+      open_ended: 'open_ended',
+      openended: 'open_ended',
+      long_answer: 'open_ended',
+      long: 'open_ended',
+      paragraph: 'open_ended',
+      essay: 'open_ended',
+      descriptive: 'open_ended',
+      table_fill: 'table_fill',
+      table_fill_in: 'table_fill',
+      tablefillin: 'table_fill',
+      table: 'table_fill',
       section: 'section',
       passage: 'section',
       reading: 'section',
-      header: 'section'
+      reading_passage: 'section',
+      comprehension: 'section',
+      instructions: 'section',
+      header: 'section',
+      drag_drop: 'drag_drop',
+      drag_and_drop: 'drag_drop',
+      dragdrop: 'drag_drop',
+      dropdown: 'dropdown',
+      select: 'dropdown',
+      categorize: 'categorize',
+      categorise: 'categorize',
+      category: 'categorize',
+      classification: 'categorize',
+      sorting: 'categorize',
+      reorder: 'reorder',
+      re_order: 'reorder',
+      order: 'reorder',
+      ordering: 'reorder',
+      sequence: 'reorder',
+      arrange: 'reorder',
+      match: 'match',
+      matching: 'match',
+      match_the_following: 'match',
+      match_grid: 'match_grid',
+      match_table_grid: 'match_grid',
+      matchtablegrid: 'match_grid',
+      matrix: 'match_grid',
+      grid: 'match_grid',
+      hot_text: 'hot_text',
+      hottext: 'hot_text',
+      labeling: 'labeling',
+      labelling: 'labeling',
+      label: 'labeling',
+      image_identify: 'labeling',
+      image: 'labeling',
+      picture: 'labeling',
+      identify: 'labeling',
+      hotspot: 'hotspot',
+      hot_spot: 'hotspot'
     };
     return map[t] || '';
   }
 
-  function parseAndNormalizeBulkJson(rawText) {
-    const cleaned = String(rawText || '')
-      .trim()
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
+  function repairJsonControlCharsInStrings(src) {
+    let out = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (inString) {
+        if (escaped) {
+          out += ch;
+          escaped = false;
+        } else if (ch === '\\') {
+          out += ch;
+          escaped = true;
+        } else if (ch === '"') {
+          // Check if this '"' is truly the end of a JSON key/string value
+          // (must be followed by optional whitespace and then ':', ',', '}', ']', or end of string)
+          let j = i + 1;
+          while (j < src.length && (src[j] === ' ' || src[j] === '\t' || src[j] === '\r' || src[j] === '\n')) {
+            j++;
+          }
+          const nextCh = j < src.length ? src[j] : '';
+          if (!nextCh || nextCh === ':' || nextCh === ',' || nextCh === '}' || nextCh === ']') {
+            out += ch;
+            inString = false;
+          } else {
+            // Unescaped inner quote inside a string (e.g. Match the Malayalam term "തരുണാസ്ഥി")
+            out += '\\"';
+          }
+        } else if (ch === '\n') {
+          out += '\\n';
+        } else if (ch === '\r') {
+          // skip CR inside string literal
+        } else if (ch === '\t') {
+          out += '\\t';
+        } else {
+          out += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inString = true;
+        }
+        out += ch;
+      }
+    }
+    return out;
+  }
 
-    if (!cleaned) {
+  function extractAndParseJsonRobust(rawText) {
+    let text = String(rawText || '').trim();
+    if (!text) {
       throw new Error('Please upload a .json file or paste JSON content.');
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (err) {
-      throw new Error(`Invalid JSON syntax: ${err.message}`);
+    // 1. Strip markdown code block fences if present anywhere
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      text = fenceMatch[1].trim();
+    } else {
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     }
+
+    // 2. Locate outermost JSON array [...] or object {...}
+    const firstBracket = text.indexOf('[');
+    const firstBrace = text.indexOf('{');
+    let startIdx = -1;
+    let isArrayStart = true;
+
+    if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+      startIdx = firstBracket;
+      isArrayStart = true;
+    } else if (firstBrace !== -1) {
+      startIdx = firstBrace;
+      isArrayStart = false;
+    }
+
+    if (startIdx > 0) {
+      text = text.slice(startIdx);
+    }
+
+    const lastClose = isArrayStart ? text.lastIndexOf(']') : text.lastIndexOf('}');
+    if (lastClose !== -1 && lastClose < text.length - 1) {
+      text = text.slice(0, lastClose + 1);
+    }
+
+    // Remove trailing commas before } or ]
+    const cleanTrailingCommas = (s) => s.replace(/,\s*([}\]])/g, '$1');
+
+    // Attempt 1: Direct parse
+    try {
+      return JSON.parse(text);
+    } catch (e1) {
+      // Attempt 2: Repair unescaped newlines/tabs inside JSON strings & trailing commas
+      const repaired = cleanTrailingCommas(repairJsonControlCharsInStrings(text));
+      try {
+        return JSON.parse(repaired);
+      } catch (e2) {
+        // Attempt 3: If a large JSON array was truncated at the end, salvage all complete {...} objects
+        if (isArrayStart) {
+          const lastCompleteObjEnd = repaired.lastIndexOf('}');
+          if (lastCompleteObjEnd !== -1) {
+            const salvaged = cleanTrailingCommas(repaired.slice(0, lastCompleteObjEnd + 1)) + ']';
+            try {
+              return JSON.parse(salvaged);
+            } catch (e3) {
+              // fall through to original error
+            }
+          }
+        }
+        throw new Error(`Invalid JSON syntax: ${e1.message}`);
+      }
+    }
+  }
+
+  let lastParsedExamMeta = { examDescription: '', examDuration: '' };
+
+  function parseAndNormalizeBulkJson(rawText) {
+    const parsed = extractAndParseJsonRobust(rawText);
+    lastParsedExamMeta = { examDescription: '', examDuration: '' };
 
     let rawArray = [];
     if (Array.isArray(parsed)) {
       rawArray = parsed;
     } else if (parsed && typeof parsed === 'object') {
+      lastParsedExamMeta.examDescription = String(
+        parsed.examDescription || parsed.instructions || parsed.description || ''
+      ).trim();
+      lastParsedExamMeta.examDuration = String(
+        parsed.examDuration || parsed.duration || parsed.timeLimit || ''
+      ).trim();
+
       if (Array.isArray(parsed.questions)) rawArray = parsed.questions;
       else if (Array.isArray(parsed.examQuestions)) rawArray = parsed.examQuestions;
       else if (Array.isArray(parsed.items)) rawArray = parsed.items;
+      else if (Array.isArray(parsed.sections)) rawArray = parsed.sections;
       else if (Array.isArray(parsed.data)) rawArray = parsed.data;
       else rawArray = [parsed];
     }
@@ -3177,60 +3600,148 @@ Now convert the following bulk questions (which may include multiple question ty
       throw new Error('No question objects found in the JSON.');
     }
 
-    const selectedType = bulkQuestionTypeSelect ? bulkQuestionTypeSelect.value : 'mcq';
+    const selectedType = bulkQuestionTypeSelect ? bulkQuestionTypeSelect.value : 'auto';
 
     return rawArray.map((item, idx) => {
       if (!item || typeof item !== 'object') {
         throw new Error(`Item #${idx + 1} is not a valid JSON object.`);
       }
 
-      const explicitType = normalizeQuestionTypeString(item.type || item.questionType);
+      const rawSectionBody = String(
+        item.sectionContent ??
+          item.passage ??
+          item.fullText ??
+          item.readingText ??
+          item.readingPassage ??
+          item.content ??
+          item.body ??
+          item.paragraph ??
+          item.context ??
+          item.description ??
+          item.instructions ??
+          item.subText ??
+          item.details ??
+          ''
+      ).trim();
+
+      const explicitType = normalizeQuestionTypeString(item.type || item.questionType || item.kind || item.category);
       let inferredType = explicitType;
       if (!inferredType) {
-        if (item.pairs || item.matches) inferredType = 'match';
-        else if (Array.isArray(item.correctOptions) || Array.isArray(item.answers)) inferredType = 'checkbox';
-        else if (item.sectionContent || item.passage) inferredType = 'section';
-        else if (item.imageUrl || item.image) inferredType = 'image_identify';
-        else if (Array.isArray(item.options) || Array.isArray(item.choices)) inferredType = 'mcq';
-        else inferredType = 'short_answer';
+        if (item.pairs || item.matches || item.rows || item.categories) inferredType = 'match';
+        else if (Array.isArray(item.correctOptions) || Array.isArray(item.answers) || Array.isArray(item.correctAnswers))
+          inferredType = 'checkbox';
+        else if (
+          rawSectionBody &&
+          !item.options &&
+          !item.choices &&
+          item.correctAnswer === undefined &&
+          item.answerKey === undefined &&
+          item.answer === undefined
+        )
+          inferredType = 'section';
+        else if (item.imageUrl || item.image || item.pictureUrl) inferredType = 'labeling';
+        else if (Array.isArray(item.options) || Array.isArray(item.choices) || Array.isArray(item.steps)) inferredType = 'mcq';
+        else inferredType = 'fill_blank';
       }
 
       let finalType = inferredType;
+      // Only override when user explicitly picked a single type AND the item is not explicitly a section or pair-based type
       if (selectedType !== 'auto') {
-        if (userChangedBulkTypeExplicitly || !explicitType) {
+        if (!explicitType) {
+          finalType = selectedType;
+        } else if (
+          userChangedBulkTypeExplicitly &&
+          explicitType !== 'section' &&
+          !PAIR_BASED_TYPES.has(explicitType)
+        ) {
           finalType = selectedType;
         }
       }
 
       const isSection = finalType === 'section';
-      const questionText = String(
-        item.questionText || item.question || item.prompt || item.title || item.q || ''
+
+      let questionText = String(
+        item.questionText ??
+          item.question ??
+          item.prompt ??
+          item.title ??
+          item.heading ??
+          item.header ??
+          item.stem ??
+          item.statement ??
+          item.q ??
+          ''
       ).trim();
+
+      const fallbackTextField = String(item.text ?? '').trim();
+      let sectionContent = rawSectionBody;
+
+      if (isSection) {
+        if (!sectionContent && fallbackTextField) {
+          sectionContent = fallbackTextField;
+        }
+        if (!questionText && sectionContent) {
+          const lines = sectionContent.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          if (lines.length > 1 && lines[0].length <= 95) {
+            questionText = lines[0];
+            sectionContent = lines.slice(1).join('\n\n');
+          } else {
+            questionText = `Passage #${idx + 1}`;
+          }
+        } else if (questionText && !sectionContent) {
+          const lines = questionText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          if (lines.length > 1) {
+            questionText = lines[0];
+            sectionContent = lines.slice(1).join('\n\n');
+          } else if (questionText.length > 90) {
+            sectionContent = questionText;
+            questionText = `Passage #${idx + 1}`;
+          }
+        }
+      } else {
+        if (!questionText) {
+          questionText = fallbackTextField || sectionContent;
+          if (questionText === sectionContent) {
+            sectionContent = '';
+          }
+        } else if (!sectionContent && fallbackTextField && fallbackTextField !== questionText) {
+          sectionContent = fallbackTextField;
+        }
+      }
 
       if (!questionText) {
         throw new Error(`Question #${idx + 1} is missing "questionText" (or "question").`);
       }
 
-      // Normalize options
+      // Normalize options / steps / sequence
       let options = [];
-      const rawOpts = item.options || item.choices;
+      const rawOpts = item.options || item.choices || item.steps || item.sequence || item.items;
       if (Array.isArray(rawOpts)) {
-        options = rawOpts.map((o) => String(o).trim()).filter(Boolean);
+        options = rawOpts
+          .map((o) => {
+            if (o && typeof o === 'object') {
+              return String(o.text ?? o.label ?? o.value ?? o.option ?? o.step ?? '').trim();
+            }
+            return String(o ?? '').trim();
+          })
+          .filter(Boolean);
       } else if (rawOpts && typeof rawOpts === 'object') {
         options = Object.values(rawOpts).map((o) => String(o).trim()).filter(Boolean);
       }
       if (finalType === 'true_false') {
         options = ['True', 'False'];
-      } else if (
-        (finalType === 'mcq' || finalType === 'radio' || finalType === 'checkbox' || finalType === 'dropdown') &&
-        options.length === 0
-      ) {
-        options = ['Option 1', 'Option 2'];
+      } else if (finalType === 'reorder' && options.length === 0) {
+        options = ['Step 1 (First)', 'Step 2 (Second)', 'Step 3 (Third)'];
+      } else if (OPTION_BASED_TYPES.has(finalType) && options.length === 0) {
+        options =
+          finalType === 'hotspot'
+            ? ['Zone A (Top-Left)', 'Zone B (Top-Right)', 'Zone C (Center)', 'Zone D (Bottom)']
+            : ['Option 1', 'Option 2'];
       }
 
       // Normalize correctAnswer (resolving "A"/"B"/"C"/"D" letter keys if needed)
       let correctAnswer = String(
-        item.correctAnswer ?? item.answer ?? item.correct ?? item.answerKey ?? ''
+        item.correctAnswer ?? item.answer ?? item.correct ?? item.answerKey ?? item.solution ?? ''
       ).trim();
 
       if (
@@ -3245,52 +3756,64 @@ Now convert the following bulk questions (which may include multiple question ty
         }
       }
 
-      // Normalize correctOptions for checkbox
+      // Normalize correctOptions for checkbox / hot_text / reorder
       let correctOptions = [];
-      const rawCorrectOpts = item.correctOptions || item.answers || item.correctAnswers;
+      const rawCorrectOpts = item.correctOptions || item.answers || item.correctAnswers || item.correctOrder;
       if (Array.isArray(rawCorrectOpts)) {
-        correctOptions = rawCorrectOpts.map((c) => {
-          const s = String(c).trim();
-          if (options.length > 0 && !options.includes(s) && /^[A-Ha-h]$/.test(s)) {
-            const lIdx = s.toUpperCase().charCodeAt(0) - 65;
-            if (options[lIdx] !== undefined) return options[lIdx];
-          }
-          return s;
-        }).filter(Boolean);
-      } else if (finalType === 'checkbox' && correctAnswer) {
+        correctOptions = rawCorrectOpts
+          .map((c) => {
+            const s = String(c).trim();
+            if (options.length > 0 && !options.includes(s) && /^[A-Ha-h]$/.test(s)) {
+              const lIdx = s.toUpperCase().charCodeAt(0) - 65;
+              if (options[lIdx] !== undefined) return options[lIdx];
+            }
+            return s;
+          })
+          .filter(Boolean);
+      } else if ((finalType === 'checkbox' || finalType === 'hot_text') && correctAnswer) {
         correctOptions = [correctAnswer];
+      } else if (finalType === 'reorder') {
+        correctOptions = [...options];
       }
 
-      // Normalize pairs for Match the Following
+      // Normalize pairs for Match, Table Fill In, Categorize, Drag and drop, Match Table Grid
       let pairs = [];
-      const rawPairs = item.pairs || item.matches;
+      const rawPairs = item.pairs || item.matches || item.matchingPairs || item.rows || item.tableRows || item.categories;
       if (Array.isArray(rawPairs)) {
         pairs = rawPairs
           .map((p) => ({
-            left: String(p.left ?? p.premise ?? p.columnA ?? p.a ?? '').trim(),
-            right: String(p.right ?? p.response ?? p.columnB ?? p.b ?? '').trim()
+            left: String(
+              p.left ?? p.premise ?? p.columnA ?? p.row ?? p.prompt ?? p.slot ?? p.item ?? p.a ?? p.question ?? ''
+            ).trim(),
+            right: String(
+              p.right ?? p.response ?? p.columnB ?? p.column ?? p.category ?? p.value ?? p.match ?? p.b ?? p.answer ?? ''
+            ).trim()
           }))
           .filter((p) => p.left || p.right);
       } else if (rawPairs && typeof rawPairs === 'object') {
         pairs = Object.entries(rawPairs).map(([k, v]) => ({
           left: String(k).trim(),
-          right: String(v).trim()
+          right: String(Array.isArray(v) ? v.join(', ') : v).trim()
         }));
       }
-      if (finalType === 'match' && pairs.length === 0) {
-        pairs = [
-          { left: 'Item A', right: 'Match 1' },
-          { left: 'Item B', right: 'Match 2' }
-        ];
+      // If a pair-based type (e.g. drag_drop) was given options + correctAnswer instead of pairs, build a pair automatically
+      if (PAIR_BASED_TYPES.has(finalType) && pairs.length === 0) {
+        if (options.length > 0 && correctAnswer) {
+          pairs = [{ left: questionText, right: correctAnswer }];
+        } else {
+          pairs = [
+            { left: 'Item A', right: 'Match 1' },
+            { left: 'Item B', right: 'Match 2' }
+          ];
+        }
       }
 
-      const rawPts = parseFloat(item.points ?? item.marks ?? item.score);
+      const rawPts = parseFloat(item.points ?? item.marks ?? item.score ?? item.weight);
       const points = isSection ? 0 : (!isNaN(rawPts) && rawPts >= 0 ? rawPts : 1);
       const required = isSection ? false : (item.required !== undefined ? Boolean(item.required) : true);
-      const sectionContent = String(
-        item.sectionContent || item.passage || item.description || item.content || ''
+      const answerKey = String(
+        item.answerKey ?? item.referenceAnswer ?? item.rubric ?? item.explanation ?? item.correctAnswer ?? item.answer ?? ''
       ).trim();
-      const answerKey = String(item.answerKey ?? item.correctAnswer ?? item.answer ?? '').trim();
 
       return {
         id: `q_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
@@ -3345,7 +3868,7 @@ Now convert the following bulk questions (which may include multiple question ty
     if (bulkQuestionTypeSelect) bulkQuestionTypeSelect.value = 'auto';
     if (bulkImportModeSelect) bulkImportModeSelect.value = 'append';
     if (bulkMultiTypeChips) {
-      const defaultSelected = new Set(['mcq', 'match', 'checkbox', 'short_answer', 'section']);
+      const defaultSelected = new Set(['mcq', 'checkbox', 'true_false', 'match']);
       bulkMultiTypeChips.querySelectorAll('.bulk-type-chip').forEach((chip) => {
         const t = chip.getAttribute('data-btype') || '';
         chip.classList.toggle('active', defaultSelected.has(t));
@@ -3542,6 +4065,17 @@ Now convert the following bulk questions (which may include multiple question ty
         const importedItems = parseAndNormalizeBulkJson(rawText);
         const mode = bulkImportModeSelect ? bulkImportModeSelect.value : 'append';
 
+        if (lastParsedExamMeta.examDescription && examFormDescriptionInput) {
+          if (mode === 'replace' || !examFormDescriptionInput.value.trim()) {
+            examFormDescriptionInput.value = lastParsedExamMeta.examDescription;
+          }
+        }
+        if (lastParsedExamMeta.examDuration && examDurationInput) {
+          if (mode === 'replace' || !examDurationInput.value.trim()) {
+            examDurationInput.value = lastParsedExamMeta.examDuration;
+          }
+        }
+
         if (mode === 'replace') {
           examQuestionsList.innerHTML = '';
         } else {
@@ -3549,8 +4083,9 @@ Now convert the following bulk questions (which may include multiple question ty
           const existingCards = examQuestionsList.querySelectorAll('.gform-question-card');
           if (existingCards.length === 1) {
             const firstPrompt = existingCards[0].querySelector('.gform-q-prompt-input')?.value.trim() || '';
+            const firstSec = existingCards[0].querySelector('.gform-section-content-input')?.value.trim() || '';
             const firstImg = existingCards[0].getAttribute('data-image-url') || '';
-            if (!firstPrompt && !firstImg) {
+            if (!firstPrompt && !firstSec && !firstImg) {
               examQuestionsList.innerHTML = '';
             }
           }
@@ -4056,20 +4591,33 @@ Now convert the following bulk questions (which may include multiple question ty
     const type = q.type || 'mcq';
 
     if (studentAnswer === undefined || studentAnswer === null || studentAnswer === '') {
-      return { mark: 0, status: 'unanswered', hasKey: Boolean(q.correctAnswer || (q.correctOptions && q.correctOptions.length) || (q.pairs && q.pairs.length)) };
+      return {
+        mark: 0,
+        status: 'unanswered',
+        hasKey: Boolean(
+          q.correctAnswer ||
+          q.answerKey ||
+          (q.correctOptions && q.correctOptions.length) ||
+          (q.pairs && q.pairs.length) ||
+          (type === 'reorder' && q.options && q.options.length)
+        )
+      };
     }
 
-    if (type === 'mcq' || type === 'radio' || type === 'dropdown' || type === 'true_false') {
+    if (type === 'mcq' || type === 'radio' || type === 'dropdown' || type === 'true_false' || type === 'hotspot') {
       const key = String(q.correctAnswer || '').trim();
       if (!key) return { mark: 0, status: 'manual', hasKey: false };
       const isCorrect = String(studentAnswer).trim().toLowerCase() === key.toLowerCase();
       return { mark: isCorrect ? maxPts : 0, status: isCorrect ? 'correct' : 'incorrect', hasKey: true };
     }
 
-    if (type === 'checkbox') {
-      const correctArr = Array.isArray(q.correctOptions) ? q.correctOptions.map((o) => String(o).trim().toLowerCase()).filter(Boolean) : [];
+    if (type === 'checkbox' || type === 'hot_text') {
+      const fallbackSingle = q.correctAnswer ? [String(q.correctAnswer).trim()] : [];
+      const rawCorrect = Array.isArray(q.correctOptions) && q.correctOptions.length > 0 ? q.correctOptions : fallbackSingle;
+      const correctArr = rawCorrect.map((o) => String(o).trim().toLowerCase()).filter(Boolean);
       if (correctArr.length === 0) return { mark: 0, status: 'manual', hasKey: false };
-      const ansArr = Array.isArray(studentAnswer) ? studentAnswer.map((o) => String(o).trim().toLowerCase()).filter(Boolean) : [];
+      const rawAns = Array.isArray(studentAnswer) ? studentAnswer : [studentAnswer];
+      const ansArr = rawAns.map((o) => String(o).trim().toLowerCase()).filter(Boolean);
       if (ansArr.length === 0) return { mark: 0, status: 'unanswered', hasKey: true };
 
       const exactMatch = ansArr.length === correctArr.length && correctArr.every((c) => ansArr.includes(c));
@@ -4082,7 +4630,29 @@ Now convert the following bulk questions (which may include multiple question ty
       return { mark: rounded, status: rounded > 0 ? 'partial' : 'incorrect', hasKey: true };
     }
 
-    if (type === 'match') {
+    if (type === 'reorder') {
+      const expectedOrder = (Array.isArray(q.correctOptions) && q.correctOptions.length > 0 ? q.correctOptions : (q.options || []))
+        .map((o) => String(o).trim().toLowerCase())
+        .filter(Boolean);
+      if (expectedOrder.length === 0) return { mark: 0, status: 'manual', hasKey: false };
+      const ansArr = Array.isArray(studentAnswer)
+        ? studentAnswer.map((o) => String(o).trim().toLowerCase()).filter(Boolean)
+        : String(studentAnswer).split(',').map((o) => o.trim().toLowerCase()).filter(Boolean);
+      if (ansArr.length === 0) return { mark: 0, status: 'unanswered', hasKey: true };
+
+      let correctPosCount = 0;
+      expectedOrder.forEach((exp, idx) => {
+        if (ansArr[idx] === exp) correctPosCount++;
+      });
+      if (correctPosCount === expectedOrder.length) {
+        return { mark: maxPts, status: 'correct', hasKey: true };
+      }
+      const ratio = correctPosCount / expectedOrder.length;
+      const mark = Math.round(ratio * maxPts * 2) / 2;
+      return { mark, status: correctPosCount > 0 ? 'partial' : 'incorrect', hasKey: true };
+    }
+
+    if (PAIR_BASED_TYPES.has(type)) {
       const pairs = Array.isArray(q.pairs) ? q.pairs.filter((p) => p.left || p.right) : [];
       if (pairs.length === 0) return { mark: 0, status: 'manual', hasKey: false };
       if (typeof studentAnswer !== 'object' || Array.isArray(studentAnswer)) {
@@ -4102,7 +4672,7 @@ Now convert the following bulk questions (which may include multiple question ty
       return { mark, status, hasKey: true };
     }
 
-    // Short / Long answer
+    // Fill in the blanks / Open ended / Labeling / Short / Long answer
     const key = String(q.answerKey || q.correctAnswer || '').trim();
     if (!key) return { mark: 0, status: 'manual', hasKey: false };
     const isExact = String(studentAnswer).trim().toLowerCase() === key.toLowerCase();
@@ -4424,25 +4994,31 @@ Now convert the following bulk questions (which may include multiple question ty
       return `<span class="val-empty-ans">No answer submitted by candidate</span>`;
     }
 
-    if (type === 'checkbox') {
+    if (type === 'checkbox' || type === 'hot_text') {
       const arr = Array.isArray(rawAns) ? rawAns : [rawAns];
-      if (arr.length === 0) return `<span class="val-empty-ans">No options checked</span>`;
+      if (arr.length === 0) return `<span class="val-empty-ans">No options selected</span>`;
       return `<div class="val-ans-chips">${arr.map((a) => `<span class="val-ans-chip">${escapeHtml(String(a))}</span>`).join('')}</div>`;
     }
 
-    if (type === 'match') {
+    if (type === 'reorder') {
+      const arr = Array.isArray(rawAns) ? rawAns : String(rawAns).split(',').map((s) => s.trim()).filter(Boolean);
+      if (arr.length === 0) return `<span class="val-empty-ans">No sequence submitted</span>`;
+      return `<div class="val-ans-chips">${arr.map((a, idx) => `<span class="val-ans-chip"><strong>${idx + 1}.</strong> ${escapeHtml(String(a))}</span>`).join(' &rarr; ')}</div>`;
+    }
+
+    if (PAIR_BASED_TYPES.has(type)) {
       if (typeof rawAns !== 'object' || Array.isArray(rawAns)) {
-        return `<span class="val-empty-ans">No pairs matched</span>`;
+        return `<span class="val-empty-ans">No pairs / table cells submitted</span>`;
       }
       const pairs = Array.isArray(q.pairs) ? q.pairs : [];
       const rowsHtml = pairs.map((p) => {
         const chosen = rawAns[p.left] || '';
-        const isRight = chosen && p.right && chosen.trim().toLowerCase() === p.right.trim().toLowerCase();
+        const isRight = chosen && p.right && String(chosen).trim().toLowerCase() === String(p.right).trim().toLowerCase();
         return `
           <div class="val-match-item ${chosen ? (isRight ? 'correct' : 'wrong') : ''}">
             <strong>${escapeHtml(p.left)}</strong>
             <span>&rarr;</span>
-            <span>${chosen ? escapeHtml(chosen) : '<em>Not selected</em>'}</span>
+            <span>${chosen ? escapeHtml(chosen) : '<em>Not answered</em>'}</span>
             ${p.right ? `<small class="val-expected-pair">(Expected: ${escapeHtml(p.right)})</small>` : ''}
           </div>
         `;
@@ -4455,11 +5031,21 @@ Now convert the following bulk questions (which may include multiple question ty
 
   function formatExpectedKeyHtml(q) {
     const type = q.type || 'mcq';
-    if (type === 'checkbox') {
-      const opts = Array.isArray(q.correctOptions) ? q.correctOptions : [];
+    if (type === 'checkbox' || type === 'hot_text') {
+      const opts = Array.isArray(q.correctOptions) && q.correctOptions.length > 0
+        ? q.correctOptions
+        : (q.correctAnswer ? [q.correctAnswer] : []);
       return opts.length > 0 ? escapeHtml(opts.join(', ')) : '<em>Manual Valuation (No answer key set)</em>';
     }
-    if (type === 'match') {
+    if (type === 'reorder') {
+      const seq = Array.isArray(q.correctOptions) && q.correctOptions.length > 0
+        ? q.correctOptions
+        : (Array.isArray(q.options) ? q.options : []);
+      return seq.length > 0
+        ? seq.map((step, i) => `${i + 1}. ${escapeHtml(step)}`).join(' &rarr; ')
+        : '<em>Manual Valuation</em>';
+    }
+    if (PAIR_BASED_TYPES.has(type)) {
       const pairs = Array.isArray(q.pairs) ? q.pairs : [];
       return pairs.length > 0
         ? pairs.map((p) => `${escapeHtml(p.left)} &rarr; ${escapeHtml(p.right)}`).join(' | ')
@@ -4603,6 +5189,14 @@ Now convert the following bulk questions (which may include multiple question ty
           </div>
 
           ${qImageHtml}
+          ${
+            q.sectionContent
+              ? `<div class="val-answer-box key-box" style="margin-bottom: 6px;">
+                  <span class="val-box-label">Question Passage / Context</span>
+                  <div class="val-box-content" style="white-space: pre-wrap;">${escapeHtml(q.sectionContent)}</div>
+                </div>`
+              : ''
+          }
 
           <div class="val-comparison-grid">
             <div class="val-answer-box student-box">

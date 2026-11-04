@@ -1,5 +1,5 @@
 ================================================================================
-SIBAQ '26 EXAM BUILDER — CHATGPT PROMPT (SINGLE & MULTIPLE QUESTION TYPES)
+SIBAQ '26 EXAM BUILDER — CHATGPT PROMPT (11 QUESTION TYPES)
 ================================================================================
 
 Copy everything between [START OF CHATGPT PROMPT] and [END OF CHATGPT PROMPT],
@@ -11,35 +11,37 @@ Admin -> Question -> Set Exam -> "Bulk Upload JSON"
 [START OF CHATGPT PROMPT]
 --------------------------------------------------------------------------------
 You are an expert Exam JSON Converter for the Sibaq '26 Exam Portal.
-Convert the raw bulk exam text/questions I provide below into a SINGLE valid JSON array `[ ... ]` that supports MULTIPLE question types and reading sections in the same exam.
+Convert the raw bulk exam text and questions I provide below into a SINGLE valid JSON array `[ ... ]` using the Wayground (Quizizz) model 11 question types.
 
-### 1. OUTPUT RULES
-- Output ONLY raw, valid JSON (a single JSON array `[ ... ]`). Do NOT wrap in extra explanation text.
-- Automatically detect each item's question type from the raw text (or follow any section headers like "Part A: MCQ", "Match the Following", "True or False", "Short Answer", "Read the Passage", etc.).
-- If the raw text contains a reading passage, comprehension text, or part header/instructions before a group of questions, create a `"type": "section"` item for it first, followed by the questions in the same array.
+### 1. CRITICAL FULL-TEXT & COMPLETENESS RULES (MUST FOLLOW)
+- **LOAD 100% OF THE FULL TEXT**: NEVER summarize, shorten, paraphrase, abridge, or truncate any question prompt, option, or answer key with `"..."`. You MUST copy the **100% complete, unabridged, word-for-word full text** into the JSON fields.
+- **CONVERT EVERY SINGLE ITEM**: Convert ALL questions from the beginning to the very end of the provided text. NEVER skip items or write placeholders like `// ... remaining questions`.
+- **MULTI-LINE TEXT**: If a question has multiple lines, paragraphs, verses, or numbered sub-statements (e.g. `(i) ... (ii) ...`), keep the entire text and represent line breaks as `\n` inside the JSON string so the JSON remains 100% valid.
+- **QUOTES INSIDE TEXT**: If a question or option contains quoted words (e.g. `Match the Malayalam term 'തരുണാസ്ഥി' with its English/Urdu equivalent`), use single quotes `'...'` or properly escaped JSON double quotes `\"...\"` and keep the entire sentence intact.
+- **OUTPUT FORMAT**: Output ONLY a single raw, valid JSON array `[ ... ]`. Do NOT include extra commentary outside the JSON block.
 
-### 2. SUPPORTED `"type"` VALUES (MIX ANY OF THESE IN ONE JSON ARRAY)
-1. `"section"`        -> Read-Only Reading Passage / Part Header (No question input, `"points": 0`, `"required": false`)
-2. `"mcq"`            -> Multiple Choice Question (4 or more options, single correct answer)
-3. `"checkbox"`       -> Multiple Selection Checkboxes (multiple correct answers in `"correctOptions"`)
-4. `"radio"`          -> Single Choice Radio Buttons
-5. `"match"`          -> Match the Following (Column A to Column B pairs in `"pairs"`)
-6. `"true_false"`     -> True / False Question (`"options": ["True", "False"]`)
-7. `"dropdown"`       -> Dropdown Selection (`"options": [...]`, `"correctAnswer": "..."`)
-8. `"short_answer"`   -> Short Answer / Fill in the Blank / One-Word Question
-9. `"long_answer"`    -> Long Answer / Essay / Paragraph Question
-10. `"image_identify"` -> Picture / Identify It Question (with optional `"imageUrl"`)
+### 2. SUPPORTED `"type"` VALUES (11 QUESTION TYPES)
 
-### 3. COMPLETE MULTI-TYPE JSON SCHEMA EXAMPLE
+#### Basic
+1. `"mcq"`          -> **Multiple choice** (`"options": [...]`, `"correctAnswer": "..."`)
+2. `"checkbox"`     -> **Multi-select** (`"options": [...]`, `"correctOptions": [...]`)
+3. `"true_false"`   -> **True or false** (`"options": ["True", "False"]`, `"correctAnswer": "True"` or `"False"`)
+
+#### Interactive & higher order
+4. `"drag_drop"`    -> **Drag and drop** (`"pairs": [{"left": "Target slot / sentence", "right": "Dropped token"}]`)
+5. `"dropdown"`     -> **Dropdown** (`"options": [...]`, `"correctAnswer": "..."`)
+6. `"categorize"`   -> **Categorize** (`"pairs": [{"left": "Item to classify", "right": "Category name"}]`)
+7. `"reorder"`      -> **Reorder** (`"options": ["Step 1", "Step 2", ...]`, `"correctOptions": ["Step 1", "Step 2", ...]` in the exact winning sequence)
+8. `"match"`        -> **Match** (`"pairs": [{"left": "Column A item", "right": "Column B match"}]`)
+9. `"match_grid"`   -> **Match Table Grid** (`"pairs": [{"left": "Row item", "right": "Matched Column header"}]`)
+
+#### Visual learning
+10. `"labeling"`    -> **Labeling** (`"imageUrl": ""`, `"answerKey": "Expected label(s)"`)
+11. `"hotspot"`     -> **Hotspot** (`"imageUrl": ""`, `"options": ["Region A", "Region B", ...]`, `"correctAnswer": "Correct Region"`)
+
+### 3. COMPLETE 11-TYPE JSON SCHEMA EXAMPLE
 ```json
 [
-  {
-    "type": "section",
-    "questionText": "Part A: Read the Passage Carefully",
-    "sectionContent": "Read the following passage carefully before answering Questions 1 and 2. Islamic civilization flourished during the Golden Age through translations, scientific inquiry, and literature.",
-    "points": 0,
-    "required": false
-  },
   {
     "type": "mcq",
     "questionText": "What is the capital of India?",
@@ -50,9 +52,53 @@ Convert the raw bulk exam text/questions I provide below into a SINGLE valid JSO
   },
   {
     "type": "checkbox",
-    "questionText": "Which of the following are programming languages? (Select all that apply)",
+    "questionText": "Which of the following are programming languages? (Multi-select)",
     "options": ["Python", "HTML", "JavaScript", "CSS"],
     "correctOptions": ["Python", "JavaScript"],
+    "points": 2,
+    "required": true
+  },
+  {
+    "type": "true_false",
+    "questionText": "The sun rises in the East.",
+    "options": ["True", "False"],
+    "correctAnswer": "True",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "drag_drop",
+    "questionText": "Drag and drop each term into its matching blank:",
+    "pairs": [
+      { "left": "Capital of Abbasid Caliphate", "right": "Baghdad" },
+      { "left": "Capital of Umayyad Caliphate", "right": "Damascus" }
+    ],
+    "points": 2,
+    "required": true
+  },
+  {
+    "type": "dropdown",
+    "questionText": "Choose the script primarily used for monumental Quranic inscriptions:",
+    "options": ["Thuluth", "Ruq'ah", "Diwani", "Ta'liq"],
+    "correctAnswer": "Thuluth",
+    "points": 1,
+    "required": true
+  },
+  {
+    "type": "categorize",
+    "questionText": "Categorize each scholar under their primary field:",
+    "pairs": [
+      { "left": "Al-Khwarizmi", "right": "Mathematics" },
+      { "left": "Ibn Battuta", "right": "Geography & Travel" }
+    ],
+    "points": 2,
+    "required": true
+  },
+  {
+    "type": "reorder",
+    "questionText": "Arrange the following historical eras in chronological order (earliest to latest):",
+    "options": ["Rashidun Caliphate", "Umayyad Caliphate", "Abbasid Caliphate", "Ottoman Empire"],
+    "correctOptions": ["Rashidun Caliphate", "Umayyad Caliphate", "Abbasid Caliphate", "Ottoman Empire"],
     "points": 2,
     "required": true
   },
@@ -68,63 +114,44 @@ Convert the raw bulk exam text/questions I provide below into a SINGLE valid JSO
     "required": true
   },
   {
-    "type": "true_false",
-    "questionText": "The sun rises in the East.",
-    "options": ["True", "False"],
-    "correctAnswer": "True",
-    "points": 1,
-    "required": true
-  },
-  {
-    "type": "radio",
-    "questionText": "Select the category for senior level:",
-    "options": ["Bidaya", "Ūlā", "Āliya"],
-    "correctAnswer": "Āliya",
-    "points": 1,
-    "required": true
-  },
-  {
-    "type": "dropdown",
-    "questionText": "Choose the script primarily used for monumental Quranic inscriptions:",
-    "options": ["Thuluth", "Ruq'ah", "Diwani", "Ta'liq"],
-    "correctAnswer": "Thuluth",
-    "points": 1,
-    "required": true
-  },
-  {
-    "type": "short_answer",
-    "questionText": "Who wrote the famous historical work 'Muqaddimah'?",
-    "answerKey": "Ibn Khaldun",
+    "type": "match_grid",
+    "questionText": "Match each row item to the correct column in the table grid:",
+    "pairs": [
+      { "left": "Kitab al-Manazir", "right": "Optics" },
+      { "left": "Al-Jabr", "right": "Algebra" }
+    ],
     "points": 2,
     "required": true
   },
   {
-    "type": "long_answer",
-    "questionText": "Explain the significance of Islamic calligraphy and its major script styles.",
-    "answerKey": "Key points: preservation of Quranic text, Kufic, Naskh, Thuluth, and architectural inscriptions.",
-    "points": 5,
-    "required": true
-  },
-  {
-    "type": "image_identify",
-    "questionText": "Identify the historical mosque shown in the picture:",
+    "type": "labeling",
+    "questionText": "Label the highlighted architectural part shown in the diagram:",
     "imageUrl": "",
-    "answerKey": "Al-Aqsa Mosque",
+    "answerKey": "Mihrab",
     "points": 2,
+    "required": true
+  },
+  {
+    "type": "hotspot",
+    "questionText": "Click/select the correct hotspot region on the map:",
+    "imageUrl": "",
+    "options": ["Region A (Top)", "Region B (Center)", "Region C (Bottom)"],
+    "correctAnswer": "Region B (Center)",
+    "points": 1,
     "required": true
   }
 ]
 ```
 
-### 4. STRICT FORMATTING RULES
-- Strip leading numbering/labels such as `"1."`, `"Q1)"`, `"a)"`, `"(A)"`, `"i."` from `"questionText"` and `"options"`.
-- For `"mcq"`, `"radio"`, `"dropdown"`, and `"true_false"`, `"correctAnswer"` MUST be the exact text of the winning option (not just the letter `"A"` or `"B"`).
-- For `"checkbox"`, `"correctOptions"` MUST be an array of the exact winning option strings.
-- For `"match"`, each row in `"pairs"` MUST have `{"left": "...", "right": "..."}` where `"right"` is the correct match for `"left"`.
-- For `"short_answer"`, `"long_answer"`, and `"image_identify"`, place the expected answer or grading rubric inside `"answerKey"`.
-- For `"section"`, put the section title in `"questionText"`, the full passage/instructions to read in `"sectionContent"`, `"points": 0`, and `"required": false`.
+### 4. STRICT FIELD RULES
+- Strip leading numbering labels such as `"1."`, `"Q1)"`, `"a)"`, `"(A)"` from `"questionText"` and `"options"`, while keeping 100% of the actual question text intact.
+- For `"mcq"`, `"dropdown"`, `"true_false"`, and `"hotspot"`, `"correctAnswer"` MUST be the exact full text of the correct option (not just `"A"` or `"B"`).
+- For `"checkbox"`, `"correctOptions"` MUST be an array of the exact full strings of all winning options.
+- For `"reorder"`, list all steps in `"options"` and `"correctOptions"` in their exact winning chronological/logical order.
+- For `"match"`, `"categorize"`, `"drag_drop"`, and `"match_grid"`, each item in `"pairs"` MUST have `{"left": "...", "right": "..."}` where `"right"` is the full correct match/token/category for `"left"`.
+- For `"labeling"`, place the full expected answer inside `"answerKey"`.
 
-Now convert the following bulk exam text (including all its different question types and sections) into a single JSON array:
+Now convert the following bulk exam text (keeping 100% of the full text for every question, option, and answer) into a single valid JSON array:
 
 [PASTE YOUR RAW BULK QUESTIONS / FULL EXAM PAPER TEXT HERE]
 --------------------------------------------------------------------------------

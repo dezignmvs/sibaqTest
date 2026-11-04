@@ -252,6 +252,13 @@
             </div>
 
             <div class="slide-right-actions">
+              <button type="button" class="slide-nav-btn slide-skip-btn" id="examSlideSkipBtn" title="Skip this question and answer it at the end">
+                <span>Skip</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
               <button type="button" class="slide-nav-btn slide-continue-btn" id="examSlideNextBtn">
                 <span>Continue</span>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -316,6 +323,22 @@
           <span class="submit-meta-label">Chest Code</span>
           <strong id="examSubmissionChestCode">#—</strong>
         </div>
+      </div>
+
+      <!-- Wayground-Style Exam Score & Review Results (True/False Correct/Incorrect Breakdown) -->
+      <div class="submit-results-summary-box" id="examSubmissionResultsBox" style="display: none;">
+        <div class="results-score-banner">
+          <div class="score-pill-badge" id="examResultScoreBadge">Score: 0 / 0 Pts (0%)</div>
+          <div class="score-stat-chips">
+            <span class="score-chip correct-chip" id="examResultCorrectCount">✓ 0 Correct</span>
+            <span class="score-chip wrong-chip" id="examResultWrongCount">✗ 0 Incorrect</span>
+          </div>
+        </div>
+
+        <div class="results-review-heading">
+          <span>Question Review &amp; Results:</span>
+        </div>
+        <div class="results-review-list" id="examResultsReviewList"></div>
       </div>
 
       <div class="submit-anim-progress-bar">

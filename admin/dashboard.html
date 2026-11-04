@@ -614,14 +614,17 @@
 
             <div class="quick-type-chips">
               <span class="quick-type-label">Quick Add:</span>
-              <button type="button" class="quick-type-btn section-chip-btn" data-qtype="section">Section / Passage</button>
-              <button type="button" class="quick-type-btn" data-qtype="mcq">MCQ</button>
-              <button type="button" class="quick-type-btn" data-qtype="image_identify">Picture / Identify It</button>
-              <button type="button" class="quick-type-btn" data-qtype="match">Match the Following</button>
-              <button type="button" class="quick-type-btn" data-qtype="checkbox">Checkbox</button>
-              <button type="button" class="quick-type-btn" data-qtype="radio">Radio</button>
-              <button type="button" class="quick-type-btn" data-qtype="short_answer">Short Answer</button>
-              <button type="button" class="quick-type-btn" data-qtype="long_answer">Long Answer</button>
+              <button type="button" class="quick-type-btn" data-qtype="mcq">Multiple choice</button>
+              <button type="button" class="quick-type-btn" data-qtype="checkbox">Multi-select</button>
+              <button type="button" class="quick-type-btn" data-qtype="true_false">True or false</button>
+              <button type="button" class="quick-type-btn" data-qtype="drag_drop">Drag and drop</button>
+              <button type="button" class="quick-type-btn" data-qtype="dropdown">Dropdown</button>
+              <button type="button" class="quick-type-btn" data-qtype="categorize">Categorize</button>
+              <button type="button" class="quick-type-btn" data-qtype="reorder">Reorder</button>
+              <button type="button" class="quick-type-btn" data-qtype="match">Match</button>
+              <button type="button" class="quick-type-btn" data-qtype="match_grid">Match Table Grid</button>
+              <button type="button" class="quick-type-btn" data-qtype="labeling">Labeling</button>
+              <button type="button" class="quick-type-btn" data-qtype="hotspot">Hotspot</button>
             </div>
           </div>
         </form>
@@ -1201,16 +1204,23 @@
             <label class="form-section-label" for="bulkQuestionTypeSelect">1. Question Type Mode</label>
             <select id="bulkQuestionTypeSelect" class="gform-q-type-select bulk-type-select">
               <option value="auto" selected>Multiple Question Types (Mixed Exam JSON)</option>
-              <option value="mcq">Multiple Choice (MCQ Only)</option>
-              <option value="match">Match the Following Only</option>
-              <option value="checkbox">Checkboxes (Multiple Answers)</option>
-              <option value="radio">Radio Buttons</option>
-              <option value="short_answer">Short Answer</option>
-              <option value="long_answer">Long Answer / Paragraph</option>
-              <option value="image_identify">Picture / Identify It</option>
-              <option value="true_false">True / False</option>
-              <option value="dropdown">Dropdown</option>
-              <option value="section">Section / Reading Passage (Read Only)</option>
+              <optgroup label="Basic">
+                <option value="mcq">Multiple choice</option>
+                <option value="checkbox">Multi-select</option>
+                <option value="true_false">True or false</option>
+              </optgroup>
+              <optgroup label="Interactive &amp; higher order">
+                <option value="drag_drop">Drag and drop</option>
+                <option value="dropdown">Dropdown</option>
+                <option value="categorize">Categorize</option>
+                <option value="reorder">Reorder</option>
+                <option value="match">Match</option>
+                <option value="match_grid">Match Table Grid</option>
+              </optgroup>
+              <optgroup label="Visual learning">
+                <option value="labeling">Labeling</option>
+                <option value="hotspot">Hotspot</option>
+              </optgroup>
             </select>
           </div>
 
@@ -1231,16 +1241,17 @@
             <button type="button" class="schedule-quick-btn" id="bulkSelectAllTypesBtn">Select All Types</button>
           </div>
           <div class="bulk-multi-type-chips" id="bulkMultiTypeChips">
-            <button type="button" class="bulk-type-chip active" data-btype="mcq">✓ MCQ</button>
-            <button type="button" class="bulk-type-chip active" data-btype="match">✓ Match the Following</button>
-            <button type="button" class="bulk-type-chip active" data-btype="checkbox">✓ Checkbox</button>
-            <button type="button" class="bulk-type-chip" data-btype="radio">Radio</button>
-            <button type="button" class="bulk-type-chip active" data-btype="short_answer">✓ Short Answer</button>
-            <button type="button" class="bulk-type-chip" data-btype="long_answer">Long Answer</button>
-            <button type="button" class="bulk-type-chip" data-btype="image_identify">Picture / Identify</button>
-            <button type="button" class="bulk-type-chip" data-btype="true_false">True / False</button>
+            <button type="button" class="bulk-type-chip active" data-btype="mcq">✓ Multiple choice</button>
+            <button type="button" class="bulk-type-chip active" data-btype="checkbox">✓ Multi-select</button>
+            <button type="button" class="bulk-type-chip active" data-btype="true_false">✓ True or false</button>
+            <button type="button" class="bulk-type-chip" data-btype="drag_drop">Drag and drop</button>
             <button type="button" class="bulk-type-chip" data-btype="dropdown">Dropdown</button>
-            <button type="button" class="bulk-type-chip active" data-btype="section">✓ Section (Read Only)</button>
+            <button type="button" class="bulk-type-chip" data-btype="categorize">Categorize</button>
+            <button type="button" class="bulk-type-chip" data-btype="reorder">Reorder</button>
+            <button type="button" class="bulk-type-chip active" data-btype="match">✓ Match</button>
+            <button type="button" class="bulk-type-chip" data-btype="match_grid">Match Table Grid</button>
+            <button type="button" class="bulk-type-chip" data-btype="labeling">Labeling</button>
+            <button type="button" class="bulk-type-chip" data-btype="hotspot">Hotspot</button>
           </div>
         </div>
 

@@ -56,8 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const candExamSubmitForm = document.getElementById('candExamSubmitForm');
   const examSlideBackBtn = document.getElementById('examSlideBackBtn');
   const examSlideNextBtn = document.getElementById('examSlideNextBtn');
+  const examSlideSkipBtn = document.getElementById('examSlideSkipBtn');
   const candExamFinishBtn = document.getElementById('candExamFinishBtn');
   const examSlideCounterText = document.getElementById('examSlideCounterText');
+  const examSubmissionResultsBox = document.getElementById('examSubmissionResultsBox');
+  const examResultScoreBadge = document.getElementById('examResultScoreBadge');
+  const examResultCorrectCount = document.getElementById('examResultCorrectCount');
+  const examResultWrongCount = document.getElementById('examResultWrongCount');
+  const examResultsReviewList = document.getElementById('examResultsReviewList');
 
   const DB_NAME = 'SibaqRecordsDB';
   const DB_VERSION = 2;
@@ -95,9 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let initialVisualScale = window.visualViewport ? window.visualViewport.scale : 1;
 
   function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function showToast(message, duration = 3200) {
@@ -598,6 +607,47 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fullscreen Slide-by-Slide Examination Engine & Proctored Auto-Save
   // ==========================================================================
   const viewedSectionSlides = new Set();
+  const skippedSlides = new Set();
+  let autoAdvanceTimer = null;
+
+  function findNextSlideIndex(fromIdx) {
+    if (!activeSlides || activeSlides.length === 0) return 0;
+    // 1. Look ahead for an unanswered question that is NOT skipped
+    for (let i = fromIdx + 1; i < activeSlides.length; i++) {
+      if (!isSlideAnswered(activeSlides[i], i) && !skippedSlides.has(i)) {
+        return i;
+      }
+    }
+    // 2. Wrap around from 0 to fromIdx - 1 for unskipped
+    for (let i = 0; i < fromIdx; i++) {
+      if (!isSlideAnswered(activeSlides[i], i) && !skippedSlides.has(i)) {
+        return i;
+      }
+    }
+    // 3. If all unskipped questions are answered, cycle through skippedSlides!
+    for (let i = 0; i < activeSlides.length; i++) {
+      if (skippedSlides.has(i) && !isSlideAnswered(activeSlides[i], i)) {
+        return i;
+      }
+    }
+    // 4. Return fromIdx + 1 if within range, else fromIdx
+    return Math.min(fromIdx + 1, activeSlides.length - 1);
+  }
+
+  function triggerAutoAdvance(delayMs = 500) {
+    if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = setTimeout(() => {
+      autoAdvanceTimer = null;
+      if (!activeProgram) return;
+      const nextIdx = findNextSlideIndex(currentSlideIndex);
+      if (nextIdx !== currentSlideIndex) {
+        currentSlideIndex = nextIdx;
+        renderCurrentSlide();
+      } else {
+        renderCurrentSlide();
+      }
+    }, delayMs);
+  }
 
   function collectCurrentSlideAnswerFromDOM() {
     if (!candExamQuestionText || !activeSlides[currentSlideIndex]) return;
@@ -607,19 +657,109 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const qKey = q.id || `slide_${currentSlideIndex}`;
+    const type = q.type || 'mcq';
 
-    if (q.type === 'mcq' || q.type === 'radio' || q.type === 'true_false') {
+    if (type === 'mcq' || type === 'radio' || type === 'true_false' || type === 'hotspot') {
       const checked = candExamQuestionText.querySelector('input[type="radio"]:checked');
       if (checked) {
         currentAnswers[qKey] = checked.value;
       }
-    } else if (q.type === 'checkbox') {
+    } else if (type === 'checkbox' || type === 'hot_text') {
       const checkedBoxes = Array.from(candExamQuestionText.querySelectorAll('input[type="checkbox"]:checked'));
       currentAnswers[qKey] = checkedBoxes.map((cb) => cb.value);
-    } else if (q.type === 'dropdown') {
+    } else if (type === 'dropdown') {
       const sel = candExamQuestionText.querySelector('select.slide-dropdown-select');
       if (sel) currentAnswers[qKey] = sel.value;
-    } else if (q.type === 'match') {
+    } else if (type === 'reorder') {
+      const reorderItems = Array.from(candExamQuestionText.querySelectorAll('.wg-reorder-tile, .slide-reorder-item'));
+      if (reorderItems.length > 0) {
+        currentAnswers[qKey] = reorderItems.map((el) => el.getAttribute('data-reorder-item') || '').filter(Boolean);
+      }
+    } else if (type === 'table_fill') {
+      const tableInputs = candExamQuestionText.querySelectorAll('input.slide-table-fill-input');
+      const tableMap = {};
+      tableInputs.forEach((inp) => {
+        const leftItem = inp.getAttribute('data-left-item') || '';
+        if (leftItem) tableMap[leftItem] = inp.value;
+      });
+      currentAnswers[qKey] = tableMap;
+    } else if (type === 'match_grid') {
+      const wgSelectedCells = candExamQuestionText.querySelectorAll('.wg-grid-cell.selected');
+      if (wgSelectedCells.length > 0) {
+        const gridMap = {};
+        wgSelectedCells.forEach((c) => {
+          const leftItem = c.getAttribute('data-left-item') || '';
+          const colVal = c.getAttribute('data-col-val') || '';
+          if (leftItem && colVal) {
+            gridMap[leftItem] = colVal;
+          }
+        });
+        currentAnswers[qKey] = gridMap;
+      } else {
+        const matrixRadios = candExamQuestionText.querySelectorAll('input.slide-matrix-radio:checked');
+        const gridMap = {};
+        matrixRadios.forEach((r) => {
+          const leftItem = r.getAttribute('data-left-item') || '';
+          if (leftItem) gridMap[leftItem] = r.value;
+        });
+        currentAnswers[qKey] = gridMap;
+      }
+    } else if (type === 'drag_drop') {
+      const dropSlots = candExamQuestionText.querySelectorAll('.wg-drop-slot');
+      if (dropSlots.length > 0) {
+        const ddMap = {};
+        dropSlots.forEach((slot) => {
+          const leftItem = slot.getAttribute('data-slot-key') || '';
+          const tokenVal = slot.getAttribute('data-assigned-token') || '';
+          if (leftItem && tokenVal) ddMap[leftItem] = tokenVal;
+        });
+        currentAnswers[qKey] = ddMap;
+      } else {
+        const matchSelects = candExamQuestionText.querySelectorAll('select.slide-match-select');
+        const matchMap = {};
+        matchSelects.forEach((sel) => {
+          const leftItem = sel.getAttribute('data-left-item') || '';
+          if (leftItem) matchMap[leftItem] = sel.value;
+        });
+        currentAnswers[qKey] = matchMap;
+      }
+    } else if (type === 'categorize') {
+      const catBuckets = candExamQuestionText.querySelectorAll('.wg-category-bucket');
+      if (catBuckets.length > 0) {
+        const catMap = {};
+        catBuckets.forEach((bucket) => {
+          const catName = bucket.getAttribute('data-cat-name') || '';
+          const cards = bucket.querySelectorAll('.wg-cat-card');
+          cards.forEach((card) => {
+            const itemVal = card.getAttribute('data-item-val') || '';
+            if (itemVal && catName) catMap[itemVal] = catName;
+          });
+        });
+        currentAnswers[qKey] = catMap;
+      } else {
+        const matchSelects = candExamQuestionText.querySelectorAll('select.slide-match-select');
+        const matchMap = {};
+        matchSelects.forEach((sel) => {
+          const leftItem = sel.getAttribute('data-left-item') || '';
+          if (leftItem) matchMap[leftItem] = sel.value;
+        });
+        currentAnswers[qKey] = matchMap;
+      }
+    } else if (type === 'labeling' || type === 'image_identify') {
+      const labelTargets = candExamQuestionText.querySelectorAll('.wg-label-target');
+      if (labelTargets.length > 0) {
+        const lblMap = {};
+        labelTargets.forEach((t) => {
+          const key = t.getAttribute('data-slot-key') || '';
+          const val = t.getAttribute('data-assigned-label') || '';
+          if (key && val) lblMap[key] = val;
+        });
+        currentAnswers[qKey] = lblMap;
+      } else {
+        const textInp = candExamQuestionText.querySelector('.slide-text-input');
+        if (textInp) currentAnswers[qKey] = textInp.value;
+      }
+    } else if (type === 'match') {
       const matchSelects = candExamQuestionText.querySelectorAll('select.slide-match-select');
       const matchMap = {};
       matchSelects.forEach((sel) => {
@@ -707,18 +847,25 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Update footer buttons (Back & Continue vs Submit)
+    // Update footer buttons (Back & Continue vs Submit & Skip)
+    const isAlreadyAnswered = isSlideAnswered(q, currentSlideIndex);
+    const allAnswered = activeSlides.every((s, i) => s.type === 'section' || isSlideAnswered(s, i));
+    const isLastSlide = currentSlideIndex === total - 1;
+
     if (examSlideCounterText) {
-      examSlideCounterText.textContent = `Slide ${currentSlideIndex + 1} of ${total}`;
+      examSlideCounterText.textContent = `Question ${currentSlideIndex + 1} of ${total}`;
     }
     if (examSlideBackBtn) {
       examSlideBackBtn.disabled = currentSlideIndex === 0;
     }
+    if (examSlideSkipBtn) {
+      examSlideSkipBtn.style.display = (!isAlreadyAnswered && q.type !== 'section' && !allAnswered) ? 'inline-flex' : 'none';
+    }
     if (examSlideNextBtn) {
-      examSlideNextBtn.style.display = currentSlideIndex < total - 1 ? 'inline-flex' : 'none';
+      examSlideNextBtn.style.display = (!isLastSlide && !allAnswered) ? 'inline-flex' : 'none';
     }
     if (candExamFinishBtn) {
-      candExamFinishBtn.style.display = currentSlideIndex === total - 1 ? 'inline-flex' : 'none';
+      candExamFinishBtn.style.display = (isLastSlide || allAnswered) ? 'inline-flex' : 'none';
     }
 
     const slideImageHtml = q.imageUrl
@@ -764,31 +911,46 @@ document.addEventListener('DOMContentLoaded', () => {
       activeSlides.slice(0, currentSlideIndex + 1).filter((s) => s.type !== 'section').length || currentSlideIndex + 1;
     const pts = q.points !== undefined ? `${q.points} Point${q.points === 1 ? '' : 's'}` : '1 Point';
     const typeLabels = {
-      mcq: 'Multiple Choice Question',
-      image_identify: 'Picture Identification Question',
+      mcq: 'Multiple Choice',
+      checkbox: 'Multi-Select',
+      true_false: 'True or False',
+      fill_blank: 'Fill in the Blanks',
+      open_ended: 'Open Ended',
+      table_fill: 'Table Fill In',
+      section: 'Passage',
+      drag_drop: 'Drag and Drop',
+      dropdown: 'Dropdown',
+      categorize: 'Categorize',
+      reorder: 'Reorder Sequence',
       match: 'Match the Following',
-      checkbox: 'Multiple Selection (Checkboxes)',
-      radio: 'Single Choice (Radio)',
-      short_answer: 'Short Answer Question',
-      long_answer: 'Long Answer / Essay Question',
-      dropdown: 'Dropdown Selection',
-      true_false: 'True / False Question'
+      match_grid: 'Match Table Grid',
+      hot_text: 'Hot Text',
+      labeling: 'Labeling',
+      hotspot: 'Hotspot',
+      image_identify: 'Labeling / Picture Identification',
+      radio: 'Multiple Choice',
+      short_answer: 'Fill in the Blanks / Short Answer',
+      long_answer: 'Open Ended / Essay'
     };
-    const typeBadgeText = typeLabels[q.type] || 'Examination Question';
+    const type = q.type || 'mcq';
+    const typeBadgeText = typeLabels[type] || 'Examination Question';
 
     let answerBodyHtml = '';
 
-    if (q.type === 'mcq' || q.type === 'radio' || q.type === 'true_false') {
-      const opts = q.type === 'true_false' ? ['True', 'False'] : (q.options || []);
+    if (type === 'mcq' || type === 'radio' || type === 'true_false' || type === 'hotspot') {
+      const opts = type === 'true_false' ? ['True', 'False'] : (q.options || []);
       answerBodyHtml = `
-        <div class="slide-options-grid">
+        <div class="slide-options-grid ${isAlreadyAnswered ? 'locked' : ''}">
           ${opts
             .map((opt, oIdx) => {
               const isChecked = savedVal === opt;
               const letter = String.fromCharCode(65 + oIdx);
+              let cardClass = 'slide-option-card';
+              if (isChecked) cardClass += ' selected locked-chosen';
+              else if (isAlreadyAnswered) cardClass += ' locked-disabled';
               return `
-                <label class="slide-option-card ${isChecked ? 'selected' : ''}">
-                  <input type="radio" name="slide_radio_${currentSlideIndex}" value="${escapeHtml(opt)}" ${isChecked ? 'checked' : ''} />
+                <label class="${cardClass}">
+                  <input type="radio" name="slide_radio_${currentSlideIndex}" value="${escapeHtml(opt)}" ${isChecked ? 'checked' : ''} ${isAlreadyAnswered ? 'disabled' : ''} />
                   <span class="slide-opt-letter">${letter}</span>
                   <span class="slide-opt-text">${escapeHtml(opt)}</span>
                 </label>
@@ -797,17 +959,24 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('')}
         </div>
       `;
-    } else if (q.type === 'checkbox') {
+    } else if (type === 'checkbox' || type === 'hot_text') {
       const selectedArr = Array.isArray(savedVal) ? savedVal : [];
+      const helperHint = type === 'hot_text'
+        ? `<div class="slide-helper-note">Click to highlight / select the correct hot text token(s) below:</div>`
+        : '';
       answerBodyHtml = `
-        <div class="slide-options-grid">
+        ${helperHint}
+        <div class="slide-options-grid ${type === 'hot_text' ? 'slide-hottext-grid' : ''} ${isAlreadyAnswered ? 'locked' : ''}">
           ${(q.options || [])
             .map((opt, oIdx) => {
               const isChecked = selectedArr.includes(opt);
               const letter = String.fromCharCode(65 + oIdx);
+              let cardClass = 'slide-option-card';
+              if (isChecked) cardClass += ' selected locked-chosen';
+              else if (isAlreadyAnswered) cardClass += ' locked-disabled';
               return `
-                <label class="slide-option-card ${isChecked ? 'selected' : ''}">
-                  <input type="checkbox" name="slide_check_${currentSlideIndex}" value="${escapeHtml(opt)}" ${isChecked ? 'checked' : ''} />
+                <label class="${cardClass}">
+                  <input type="checkbox" name="slide_check_${currentSlideIndex}" value="${escapeHtml(opt)}" ${isChecked ? 'checked' : ''} ${isAlreadyAnswered ? 'disabled' : ''} />
                   <span class="slide-opt-letter">${letter}</span>
                   <span class="slide-opt-text">${escapeHtml(opt)}</span>
                 </label>
@@ -816,10 +985,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('')}
         </div>
       `;
-    } else if (q.type === 'dropdown') {
+    } else if (type === 'dropdown') {
       answerBodyHtml = `
         <div class="slide-dropdown-wrap">
-          <select class="slide-dropdown-select">
+          <select class="slide-dropdown-select" ${isAlreadyAnswered ? 'disabled' : ''}>
             <option value="">-- Choose your answer --</option>
             ${(q.options || [])
               .map(
@@ -830,9 +999,250 @@ document.addEventListener('DOMContentLoaded', () => {
           </select>
         </div>
       `;
-    } else if (q.type === 'match') {
+    } else if (type === 'reorder') {
+      const defaultItems = Array.isArray(q.options) ? [...q.options] : [];
+      let currentOrder = Array.isArray(savedVal) && savedVal.length === defaultItems.length
+        ? [...savedVal]
+        : [...defaultItems];
+      if (!Array.isArray(savedVal) && currentOrder.length > 1) {
+        currentOrder = [...defaultItems].sort((a, b) => String(a).localeCompare(String(b)));
+        if (currentOrder.every((item, idx) => item === defaultItems[idx]) && currentOrder.length > 1) {
+          currentOrder.reverse();
+        }
+      }
+      answerBodyHtml = `
+        <div class="wg-stage-card wg-reorder-stage">
+          <div class="wg-stage-pill">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"></path></svg>
+            <span>Click or drag tiles to arrange into sequence</span>
+          </div>
+          <div class="wg-reorder-board" id="wgReorderBoard">
+            ${currentOrder
+              .map((item, rIdx) => {
+                const tileColorClass = `wg-tile-color-${rIdx % 5}`;
+                return `
+                  <div class="wg-reorder-slot-wrap" data-slot-index="${rIdx}">
+                    <div class="wg-reorder-rank-badge">${rIdx + 1}</div>
+                    <div class="wg-reorder-tile ${tileColorClass}" draggable="${!isAlreadyAnswered}" data-reorder-item="${escapeHtml(item)}" data-index="${rIdx}">
+                      <span class="wg-grip-icon">⠿</span>
+                      <span class="wg-reorder-tile-text">${escapeHtml(item)}</span>
+                      ${!isAlreadyAnswered ? `
+                      <div class="wg-reorder-tile-arrows">
+                        <button type="button" class="wg-tile-arrow-btn move-up" ${rIdx === 0 ? 'disabled' : ''} title="Move Left / Earlier">&larr;</button>
+                        <button type="button" class="wg-tile-arrow-btn move-down" ${rIdx === currentOrder.length - 1 ? 'disabled' : ''} title="Move Right / Later">&rarr;</button>
+                      </div>` : ''}
+                    </div>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+        </div>
+      `;
+    } else if (type === 'table_fill') {
       const pairs = Array.isArray(q.pairs) ? q.pairs : [];
-      const rightChoices = pairs.map((p) => p.right);
+      const savedTableObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
+      answerBodyHtml = `
+        <div class="slide-table-fill-wrap">
+          <table class="slide-table-fill-grid">
+            <thead>
+              <tr>
+                <th>Row Prompt / Label</th>
+                <th>Your Answer (Fill In)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pairs
+                .map((p) => {
+                  const val = savedTableObj[p.left] || '';
+                  return `
+                    <tr>
+                      <td class="slide-table-prompt-cell">${escapeHtml(p.left)}</td>
+                      <td>
+                        <input
+                          type="text"
+                          class="slide-table-fill-input"
+                          data-left-item="${escapeHtml(p.left)}"
+                          value="${escapeHtml(val)}"
+                          placeholder="Type missing value..."
+                          ${isAlreadyAnswered ? 'disabled' : ''}
+                        />
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else if (type === 'match_grid') {
+      const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+      const colHeaders = Array.from(new Set(pairs.map((p) => p.right).filter(Boolean)));
+      const savedGridObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
+      answerBodyHtml = `
+        <div class="wg-stage-card wg-grid-container">
+          <div class="wg-stage-pill">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M3 15h18"></path><path d="M9 3v18"></path><path d="M15 3v18"></path></svg>
+            <span>Select the subset in which each number or item belongs</span>
+          </div>
+          <div class="wg-grid-table-wrap">
+            <table class="wg-grid-table">
+              <thead>
+                <tr>
+                  <th class="wg-grid-col-prompt">Items</th>
+                  ${colHeaders.map((col) => `<th class="wg-grid-col-head">${escapeHtml(col)}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${pairs
+                  .map((p) => {
+                    const chosen = savedGridObj[p.left] || '';
+                    const isChosenMatch = (col) => {
+                      if (Array.isArray(chosen)) return chosen.includes(col);
+                      return chosen === col;
+                    };
+                    return `
+                      <tr>
+                        <td class="wg-grid-row-label">${escapeHtml(p.left)}</td>
+                        ${colHeaders
+                          .map((col) => {
+                            const isSelected = isChosenMatch(col);
+                            return `
+                              <td class="wg-grid-cell-td">
+                                <button
+                                  type="button"
+                                  class="wg-grid-cell ${isSelected ? 'selected' : ''}"
+                                  data-left-item="${escapeHtml(p.left)}"
+                                  data-col-val="${escapeHtml(col)}"
+                                  ${isAlreadyAnswered ? 'disabled' : ''}
+                                  title="Select ${escapeHtml(col)} for ${escapeHtml(p.left)}"
+                                >
+                                  <span class="wg-grid-check-box">${isSelected ? '✓' : ''}</span>
+                                </button>
+                              </td>
+                            `;
+                          })
+                          .join('')}
+                      </tr>
+                    `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else if (type === 'drag_drop') {
+      const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+      const rightChoices = Array.from(new Set(pairs.map((p) => p.right).filter(Boolean)));
+      const extraOptions = Array.isArray(q.options) ? q.options : [];
+      const allTokens = Array.from(new Set([...rightChoices, ...extraOptions]));
+      const savedDragObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
+      const usedTokens = Object.values(savedDragObj).filter(Boolean);
+
+      answerBodyHtml = `
+        <div class="wg-stage-card wg-dragdrop-stage">
+          <div class="wg-stage-pill">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+            <span>Drag tokens into the matching blank or click to place</span>
+          </div>
+          <div class="wg-dragdrop-prompt-card">
+            ${pairs.length > 0 ? pairs.map((p) => {
+              const assigned = savedDragObj[p.left] || '';
+              return `
+                <div class="wg-dd-expression-row">
+                  <span class="wg-dd-prompt-text">${escapeHtml(p.left)}</span>
+                  <div class="wg-drop-slot ${assigned ? 'filled' : ''}" data-slot-key="${escapeHtml(p.left)}" data-assigned-token="${escapeHtml(assigned)}">
+                    ${assigned ? `
+                      <span class="wg-grip-icon">||</span>
+                      <span class="wg-token-val">${escapeHtml(assigned)}</span>
+                      ${!isAlreadyAnswered ? `<button type="button" class="wg-slot-remove-btn" title="Remove">&times;</button>` : ''}
+                    ` : `<span class="wg-slot-placeholder">[ Drop answer here ]</span>`}
+                  </div>
+                </div>
+              `;
+            }).join('') : `
+              <div class="wg-dd-expression-row">
+                <span class="wg-dd-prompt-text">${escapeHtml(q.questionText)}</span>
+                <div class="wg-drop-slot ${savedDragObj['main_slot'] ? 'filled' : ''}" data-slot-key="main_slot" data-assigned-token="${escapeHtml(savedDragObj['main_slot'] || '')}">
+                  ${savedDragObj['main_slot'] ? `
+                    <span class="wg-grip-icon">||</span>
+                    <span class="wg-token-val">${escapeHtml(savedDragObj['main_slot'])}</span>
+                    ${!isAlreadyAnswered ? `<button type="button" class="wg-slot-remove-btn" title="Remove">&times;</button>` : ''}
+                  ` : `<span class="wg-slot-placeholder">[ Drop answer here ]</span>`}
+                </div>
+              </div>
+            `}
+          </div>
+          <div class="wg-tokens-tray">
+            <div class="wg-tokens-label">Available Tokens (Click or drag to place):</div>
+            <div class="wg-tokens-list">
+              ${allTokens.map((tok, tIdx) => {
+                const isUsed = usedTokens.includes(tok);
+                return `
+                  <div class="wg-token-chip ${isUsed ? 'is-used' : ''}" draggable="${!isUsed && !isAlreadyAnswered}" data-token-val="${escapeHtml(tok)}" data-token-id="tok_${tIdx}">
+                    <span class="wg-grip-icon">||</span>
+                    <span class="wg-token-text">${escapeHtml(tok)}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (type === 'categorize') {
+      const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+      const categories = Array.from(new Set(pairs.map((p) => p.right).filter(Boolean)));
+      const savedCatObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
+      const assignedKeys = Object.keys(savedCatObj).filter((k) => savedCatObj[k]);
+      const unassignedItems = pairs.map((p) => p.left).filter((item) => !assignedKeys.includes(item));
+
+      answerBodyHtml = `
+        <div class="wg-stage-card wg-categorize-stage">
+          <div class="wg-stage-pill">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h7"></path></svg>
+            <span>Categorise the following items into the correct groups</span>
+          </div>
+          <div class="wg-cat-layout">
+            <div class="wg-cat-pool-wrap">
+              <div class="wg-cat-pool-header">Items to Categorize:</div>
+              <div class="wg-cat-pool" id="wgCatPool">
+                ${unassignedItems.map((item) => `
+                  <div class="wg-cat-card" draggable="${!isAlreadyAnswered}" data-item-val="${escapeHtml(item)}">
+                    <span class="wg-grip-icon">||</span>
+                    <span class="wg-cat-card-text">${escapeHtml(item)}</span>
+                  </div>
+                `).join('')}
+                ${unassignedItems.length === 0 ? `<div style="font-size:0.85rem; color:rgba(255,255,255,0.45); text-align:center; padding:20px 0;">All items categorized!</div>` : ''}
+              </div>
+            </div>
+            <div class="wg-cat-buckets-wrap">
+              ${categories.map((cat, cIdx) => {
+                const catColorClass = `wg-cat-color-${cIdx % 5}`;
+                const itemsInThisCat = pairs.filter((p) => savedCatObj[p.left] === cat).map((p) => p.left);
+                return `
+                  <div class="wg-category-bucket ${catColorClass}" data-cat-name="${escapeHtml(cat)}">
+                    <div class="wg-cat-header-banner">${escapeHtml(cat)}</div>
+                    <div class="wg-cat-bucket-dropzone" data-cat-name="${escapeHtml(cat)}">
+                      ${itemsInThisCat.map((item) => `
+                        <div class="wg-cat-card assigned" draggable="${!isAlreadyAnswered}" data-item-val="${escapeHtml(item)}" title="Click to remove">
+                          <span class="wg-grip-icon">||</span>
+                          <span class="wg-cat-card-text">${escapeHtml(item)}</span>
+                          ${!isAlreadyAnswered ? `<button type="button" class="wg-cat-remove-btn" title="Remove">&times;</button>` : ''}
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (type === 'match') {
+      const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+      const rightChoices = Array.from(new Set(pairs.map((p) => p.right).filter(Boolean)));
       const savedMatchObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
 
       answerBodyHtml = `
@@ -849,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="slide-match-item">
                   <div class="slide-match-premise">${escapeHtml(p.left)}</div>
                   <div class="slide-match-connector">&rarr;</div>
-                  <select class="slide-match-select" data-left-item="${escapeHtml(p.left)}">
+                  <select class="slide-match-select" data-left-item="${escapeHtml(p.left)}" ${isAlreadyAnswered ? 'disabled' : ''}>
                     <option value="">-- Select Match --</option>
                     ${rightChoices
                       .map(
@@ -864,26 +1274,113 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('')}
         </div>
       `;
-    } else if (q.type === 'long_answer') {
+    } else if (type === 'open_ended' || type === 'long_answer') {
       answerBodyHtml = `
         <textarea
           class="slide-text-input slide-textarea"
           rows="6"
-          placeholder="Type your detailed answer here (auto-saved as you type)..."
+          placeholder="Type your detailed open-ended response here (auto-saved as you type)..."
+          ${isAlreadyAnswered ? 'disabled' : ''}
         >${escapeHtml(typeof savedVal === 'string' ? savedVal : '')}</textarea>
       `;
+    } else if (type === 'labeling' || type === 'image_identify') {
+      const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+      const rightChoices = Array.from(new Set(pairs.map((p) => p.right).filter(Boolean)));
+      const extraOptions = Array.isArray(q.options) ? q.options : [];
+      const allLabels = Array.from(new Set([...rightChoices, ...extraOptions]));
+      const targets = pairs.length > 0 ? pairs.map((p) => p.left) : (q.options && q.options.length > 0 ? q.options.map((_, i) => `Label Target ${i + 1}`) : []);
+      const savedLabelObj = savedVal && typeof savedVal === 'object' ? savedVal : {};
+      const usedLabels = Object.values(savedLabelObj).filter(Boolean);
+
+      if (targets.length > 0 && allLabels.length > 0) {
+        answerBodyHtml = `
+          <div class="wg-stage-card wg-labeling-stage">
+            <div class="wg-stage-pill">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+              <span>Drag labels to their correct positions on the diagram</span>
+            </div>
+            <div class="wg-labeling-layout">
+              <div class="wg-labels-palette">
+                <div class="wg-labels-palette-title">Available Labels:</div>
+                <div class="wg-labels-palette-list">
+                  ${allLabels.map((lbl, lIdx) => {
+                    const isUsed = usedLabels.includes(lbl);
+                    return `
+                      <div class="wg-label-chip ${isUsed ? 'is-used' : ''}" draggable="${!isUsed && !isAlreadyAnswered}" data-label-val="${escapeHtml(lbl)}" data-label-id="lbl_${lIdx}">
+                        <span class="wg-grip-icon">:::</span>
+                        <span class="wg-label-text">${escapeHtml(lbl)}</span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+              <div class="wg-labeling-stage-image-box">
+                ${q.imageUrl ? `<img src="${escapeHtml(q.imageUrl)}" alt="Diagram" class="wg-diagram-image" />` : ''}
+                <div class="wg-label-dropzones-list">
+                  ${targets.map((tgt) => {
+                    const assigned = savedLabelObj[tgt] || '';
+                    return `
+                      <div class="wg-label-target-row">
+                        <span class="wg-target-label-name">${escapeHtml(tgt)}:</span>
+                        <div class="wg-label-target ${assigned ? 'has-label' : ''}" data-slot-key="${escapeHtml(tgt)}" data-assigned-label="${escapeHtml(assigned)}">
+                          ${assigned ? `
+                            <span class="wg-grip-icon">:::</span>
+                            <span class="wg-target-assigned-text">${escapeHtml(assigned)}</span>
+                            ${!isAlreadyAnswered ? `<button type="button" class="wg-remove-label-btn" title="Remove">&times;</button>` : ''}
+                          ` : `<span class="wg-target-empty-prompt">[ Drop label here ]</span>`}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        answerBodyHtml = `
+          <div class="wg-stage-card">
+            <div class="wg-stage-pill">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+              <span>Type your identification label below</span>
+            </div>
+            <input
+              type="text"
+              class="slide-text-input slide-short-input"
+              value="${escapeHtml(typeof savedVal === 'string' ? savedVal : '')}"
+              placeholder="Identify / label the picture shown above and type your answer here..."
+              ${isAlreadyAnswered ? 'disabled' : ''}
+            />
+          </div>
+        `;
+      }
     } else {
-      const placeholderTxt = q.type === 'image_identify'
-        ? 'Identify the picture shown above and type your answer here (auto-saved)...'
-        : 'Type your short answer here (auto-saved as you type)...';
+      const placeholderTxt = 'Type your answer here (auto-saved as you type)...';
       answerBodyHtml = `
         <input
           type="text"
           class="slide-text-input slide-short-input"
           value="${escapeHtml(typeof savedVal === 'string' ? savedVal : '')}"
           placeholder="${placeholderTxt}"
+          ${isAlreadyAnswered ? 'disabled' : ''}
         />
       `;
+    }
+
+    if (q.type !== 'section' && !['mcq', 'radio', 'true_false', 'dropdown', 'hotspot'].includes(type)) {
+      if (!isAlreadyAnswered) {
+        answerBodyHtml += `
+          <button type="button" class="slide-confirm-ans-btn" id="slideConfirmAnsBtn">
+            <span>Confirm Answer &amp; Continue &rarr;</span>
+          </button>
+        `;
+      } else {
+        answerBodyHtml += `
+          <button type="button" class="slide-confirm-ans-btn" disabled style="background:#16a34a; opacity: 0.88;">
+            <span>✓ Answer Submitted (Locked)</span>
+          </button>
+        `;
+      }
     }
 
     candExamQuestionText.innerHTML = `
@@ -891,6 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="slide-q-badges">
           <span class="slide-q-number">QUESTION ${currentActualQNum} OF ${totalActualQuestions}</span>
           <span class="slide-q-type-pill">${escapeHtml(typeBadgeText)}</span>
+          ${isAlreadyAnswered ? `<span class="slide-locked-banner"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Answer Locked</span>` : ''}
         </div>
         <span class="slide-q-points">${escapeHtml(pts)}</span>
       </div>
@@ -900,6 +1398,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ${q.required ? '<span class="req-star" title="Required">*</span>' : ''}
       </h3>
 
+      ${
+        q.sectionContent && q.sectionContent.trim()
+          ? `<div class="slide-reading-section-box" style="margin-bottom: 6px;">
+              <div class="slide-reading-passage-body">${escapeHtml(q.sectionContent)}</div>
+            </div>`
+          : ''
+      }
+
       ${slideImageHtml}
 
       <div class="slide-answer-area">
@@ -907,35 +1413,506 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    // Bind live auto-save listeners to the rendered slide inputs
-    candExamQuestionText.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach((inp) => {
+    // Wayground Action 1: Radio Option Selection -> Auto-Lock & Auto-Advance to Next Question
+    candExamQuestionText.querySelectorAll('input[type="radio"]').forEach((inp) => {
       inp.addEventListener('change', () => {
+        if (isAlreadyAnswered) return;
+        const optVal = inp.value;
+        const qKey = q.id || `slide_${currentSlideIndex}`;
+        currentAnswers[qKey] = optVal;
+        skippedSlides.delete(currentSlideIndex);
+
+        candExamQuestionText.querySelectorAll('.slide-option-card').forEach((lbl) => {
+          const ctrl = lbl.querySelector('input');
+          const isChosen = ctrl && ctrl.value === optVal;
+          lbl.classList.toggle('selected', isChosen);
+          lbl.classList.toggle('locked-chosen', isChosen);
+          lbl.classList.toggle('locked-disabled', !isChosen);
+        });
+        candExamQuestionText.querySelectorAll('input[type="radio"]').forEach((r) => (r.disabled = true));
+        candExamQuestionText.querySelector('.slide-options-grid')?.classList.add('locked');
+
+        triggerAutoSave('Answer Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.add('answered');
+
+        triggerAutoAdvance(500);
+      });
+    });
+
+    // Checkbox toggles
+    candExamQuestionText.querySelectorAll('input[type="checkbox"]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        if (isAlreadyAnswered) return;
         candExamQuestionText.querySelectorAll('.slide-option-card').forEach((lbl) => {
           const ctrl = lbl.querySelector('input');
           if (ctrl) lbl.classList.toggle('selected', ctrl.checked);
         });
-        triggerAutoSave('Auto-Saved');
-        // Update dot answered state
-        const activeDot = examSlideDots?.children[currentSlideIndex];
-        if (activeDot) activeDot.classList.add('answered');
       });
     });
 
-    candExamQuestionText.querySelectorAll('select').forEach((sel) => {
+    // Wayground Action 2: Dropdown Selection -> Auto-Lock & Auto-Advance
+    const slideSel = candExamQuestionText.querySelector('select.slide-dropdown-select');
+    if (slideSel && !isAlreadyAnswered) {
+      slideSel.addEventListener('change', () => {
+        if (!slideSel.value) return;
+        const qKey = q.id || `slide_${currentSlideIndex}`;
+        currentAnswers[qKey] = slideSel.value;
+        skippedSlides.delete(currentSlideIndex);
+        slideSel.disabled = true;
+
+        triggerAutoSave('Answer Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.add('answered');
+
+        triggerAutoAdvance(500);
+      });
+    }
+
+    // Other selects (Match / Pairs)
+    candExamQuestionText.querySelectorAll('select.slide-match-select').forEach((sel) => {
       sel.addEventListener('change', () => {
-        triggerAutoSave('Auto-Saved');
+        if (isAlreadyAnswered) return;
         const activeDot = examSlideDots?.children[currentSlideIndex];
         if (activeDot) activeDot.classList.add('answered');
       });
     });
 
-    candExamQuestionText.querySelectorAll('.slide-text-input').forEach((txt) => {
+    // 1. Wayground Interactive: Match Table Grid Cell Selection
+    candExamQuestionText.querySelectorAll('.wg-grid-cell').forEach((cell) => {
+      cell.addEventListener('click', () => {
+        if (isAlreadyAnswered) return;
+        const rowItem = cell.getAttribute('data-left-item') || '';
+        const isCurrentlySelected = cell.classList.contains('selected');
+        // Toggle selection for this row's cells
+        const rowCells = candExamQuestionText.querySelectorAll(`.wg-grid-cell[data-left-item="${CSS.escape(rowItem)}"]`);
+        rowCells.forEach((c) => {
+          c.classList.remove('selected');
+          const cb = c.querySelector('.wg-grid-check-box');
+          if (cb) cb.textContent = '';
+        });
+        if (!isCurrentlySelected) {
+          cell.classList.add('selected');
+          const cb = cell.querySelector('.wg-grid-check-box');
+          if (cb) cb.textContent = '✓';
+        }
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+      });
+    });
+
+    // 2. Wayground Interactive: Drag & Drop (Chips to Slots)
+    let selectedTokenChip = null;
+    candExamQuestionText.querySelectorAll('.wg-token-chip').forEach((chip) => {
+      chip.addEventListener('dragstart', (e) => {
+        if (isAlreadyAnswered || chip.classList.contains('is-used')) return;
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-token-val') || '');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      chip.addEventListener('click', () => {
+        if (isAlreadyAnswered || chip.classList.contains('is-used')) return;
+        const tokenVal = chip.getAttribute('data-token-val') || '';
+        // Find first empty slot
+        const emptySlot = candExamQuestionText.querySelector('.wg-drop-slot:not(.filled)');
+        if (emptySlot) {
+          emptySlot.classList.add('filled');
+          emptySlot.setAttribute('data-assigned-token', tokenVal);
+          emptySlot.innerHTML = `
+            <span class="wg-grip-icon">||</span>
+            <span class="wg-token-val">${escapeHtml(tokenVal)}</span>
+            <button type="button" class="wg-slot-remove-btn" title="Remove">&times;</button>
+          `;
+          chip.classList.add('is-used');
+          bindDropSlotRemoval(emptySlot);
+          triggerAutoSave('Auto-Saved');
+          const activeDot = examSlideDots?.children[currentSlideIndex];
+          if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+        }
+      });
+    });
+
+    function bindDropSlotRemoval(slot) {
+      const removeBtn = slot.querySelector('.wg-slot-remove-btn');
+      const handleRemove = (e) => {
+        e.stopPropagation();
+        if (isAlreadyAnswered) return;
+        const tokenVal = slot.getAttribute('data-assigned-token') || '';
+        slot.classList.remove('filled');
+        slot.removeAttribute('data-assigned-token');
+        slot.innerHTML = `<span class="wg-slot-placeholder">[ Drop answer here ]</span>`;
+        // Restore chip
+        candExamQuestionText.querySelectorAll('.wg-token-chip').forEach((c) => {
+          if (c.getAttribute('data-token-val') === tokenVal) {
+            c.classList.remove('is-used');
+          }
+        });
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+      };
+      if (removeBtn) removeBtn.addEventListener('click', handleRemove);
+    }
+
+    candExamQuestionText.querySelectorAll('.wg-drop-slot').forEach((slot) => {
+      bindDropSlotRemoval(slot);
+
+      slot.addEventListener('dragover', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        slot.classList.add('drag-over');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('drag-over');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        slot.classList.remove('drag-over');
+        const tokenVal = e.dataTransfer.getData('text/plain');
+        if (!tokenVal) return;
+
+        // If slot had an existing token, un-use it
+        const prevToken = slot.getAttribute('data-assigned-token');
+        if (prevToken) {
+          candExamQuestionText.querySelectorAll('.wg-token-chip').forEach((c) => {
+            if (c.getAttribute('data-token-val') === prevToken) c.classList.remove('is-used');
+          });
+        }
+
+        slot.classList.add('filled');
+        slot.setAttribute('data-assigned-token', tokenVal);
+        slot.innerHTML = `
+          <span class="wg-grip-icon">||</span>
+          <span class="wg-token-val">${escapeHtml(tokenVal)}</span>
+          <button type="button" class="wg-slot-remove-btn" title="Remove">&times;</button>
+        `;
+        candExamQuestionText.querySelectorAll('.wg-token-chip').forEach((c) => {
+          if (c.getAttribute('data-token-val') === tokenVal) c.classList.add('is-used');
+        });
+        bindDropSlotRemoval(slot);
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+      });
+    });
+
+    // 3. Wayground Interactive: Categorize (Cards to Category Buckets)
+    let selectedCatCard = null;
+    const bindCatCardEvents = (card) => {
+      card.addEventListener('dragstart', (e) => {
+        if (isAlreadyAnswered) return;
+        e.dataTransfer.setData('text/plain', card.getAttribute('data-item-val') || '');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      card.addEventListener('click', (e) => {
+        if (isAlreadyAnswered) return;
+        if (card.classList.contains('assigned')) {
+          // If clicked in a bucket, return to pool
+          const pool = candExamQuestionText.querySelector('#wgCatPool');
+          if (pool) {
+            card.classList.remove('assigned');
+            const remBtn = card.querySelector('.wg-cat-remove-btn');
+            if (remBtn) remBtn.remove();
+            pool.appendChild(card);
+            triggerAutoSave('Auto-Saved');
+            const activeDot = examSlideDots?.children[currentSlideIndex];
+            if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+          }
+          return;
+        }
+
+        // Toggle selection in pool
+        candExamQuestionText.querySelectorAll('.wg-cat-card').forEach((c) => c.classList.remove('active-selected'));
+        if (selectedCatCard === card) {
+          selectedCatCard = null;
+        } else {
+          selectedCatCard = card;
+          card.classList.add('active-selected');
+        }
+      });
+    };
+
+    candExamQuestionText.querySelectorAll('.wg-cat-card').forEach(bindCatCardEvents);
+
+    candExamQuestionText.querySelectorAll('.wg-category-bucket').forEach((bucket) => {
+      bucket.addEventListener('click', () => {
+        if (isAlreadyAnswered || !selectedCatCard) return;
+        const dropzone = bucket.querySelector('.wg-cat-bucket-dropzone');
+        if (dropzone) {
+          selectedCatCard.classList.remove('active-selected');
+          selectedCatCard.classList.add('assigned');
+          if (!selectedCatCard.querySelector('.wg-cat-remove-btn')) {
+            const remBtn = document.createElement('button');
+            remBtn.type = 'button';
+            remBtn.className = 'wg-cat-remove-btn';
+            remBtn.title = 'Remove';
+            remBtn.innerHTML = '&times;';
+            selectedCatCard.appendChild(remBtn);
+          }
+          dropzone.appendChild(selectedCatCard);
+          selectedCatCard = null;
+          triggerAutoSave('Auto-Saved');
+          const activeDot = examSlideDots?.children[currentSlideIndex];
+          if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+        }
+      });
+
+      bucket.addEventListener('dragover', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        bucket.querySelector('.wg-cat-bucket-dropzone')?.classList.add('drag-over');
+      });
+
+      bucket.addEventListener('dragleave', () => {
+        bucket.querySelector('.wg-cat-bucket-dropzone')?.classList.remove('drag-over');
+      });
+
+      bucket.addEventListener('drop', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        bucket.querySelector('.wg-cat-bucket-dropzone')?.classList.remove('drag-over');
+        const itemVal = e.dataTransfer.getData('text/plain');
+        if (!itemVal) return;
+        const card = candExamQuestionText.querySelector(`.wg-cat-card[data-item-val="${CSS.escape(itemVal)}"]`);
+        const dropzone = bucket.querySelector('.wg-cat-bucket-dropzone');
+        if (card && dropzone) {
+          card.classList.remove('active-selected');
+          card.classList.add('assigned');
+          if (!card.querySelector('.wg-cat-remove-btn')) {
+            const remBtn = document.createElement('button');
+            remBtn.type = 'button';
+            remBtn.className = 'wg-cat-remove-btn';
+            remBtn.title = 'Remove';
+            remBtn.innerHTML = '&times;';
+            card.appendChild(remBtn);
+          }
+          dropzone.appendChild(card);
+          triggerAutoSave('Auto-Saved');
+          const activeDot = examSlideDots?.children[currentSlideIndex];
+          if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+        }
+      });
+    });
+
+    // 4. Wayground Interactive: Reorder Tiles (Arrows & Click Swap)
+    let selectedReorderTile = null;
+    candExamQuestionText.querySelectorAll('.wg-reorder-tile').forEach((tile) => {
+      tile.addEventListener('click', (e) => {
+        if (isAlreadyAnswered || e.target.closest('.wg-tile-arrow-btn')) return;
+        if (!selectedReorderTile) {
+          selectedReorderTile = tile;
+          tile.classList.add('active-selected');
+        } else if (selectedReorderTile === tile) {
+          tile.classList.remove('active-selected');
+          selectedReorderTile = null;
+        } else {
+          // Swap positions of selectedReorderTile and tile
+          const board = candExamQuestionText.querySelector('#wgReorderBoard');
+          const wrapA = selectedReorderTile.closest('.wg-reorder-slot-wrap');
+          const wrapB = tile.closest('.wg-reorder-slot-wrap');
+          if (board && wrapA && wrapB) {
+            wrapA.appendChild(tile);
+            wrapB.appendChild(selectedReorderTile);
+            selectedReorderTile.classList.remove('active-selected');
+            selectedReorderTile = null;
+            triggerAutoSave('Auto-Saved');
+            const activeDot = examSlideDots?.children[currentSlideIndex];
+            if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+          }
+        }
+      });
+    });
+
+    candExamQuestionText.querySelectorAll('.wg-tile-arrow-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isAlreadyAnswered) return;
+        const board = candExamQuestionText.querySelector('#wgReorderBoard');
+        const wrap = btn.closest('.wg-reorder-slot-wrap');
+        if (!board || !wrap) return;
+        const isUp = btn.classList.contains('move-up');
+        if (isUp && wrap.previousElementSibling) {
+          board.insertBefore(wrap, wrap.previousElementSibling);
+        } else if (!isUp && wrap.nextElementSibling) {
+          board.insertBefore(wrap.nextElementSibling, wrap);
+        }
+        // Update rank numbers and arrow disabled states
+        const allWraps = Array.from(board.querySelectorAll('.wg-reorder-slot-wrap'));
+        allWraps.forEach((w, idx) => {
+          const badge = w.querySelector('.wg-reorder-rank-badge');
+          if (badge) badge.textContent = idx + 1;
+          const upBtn = w.querySelector('.move-up');
+          const downBtn = w.querySelector('.move-down');
+          if (upBtn) upBtn.disabled = idx === 0;
+          if (downBtn) downBtn.disabled = idx === allWraps.length - 1;
+        });
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+      });
+    });
+
+    // 5. Wayground Interactive: Labeling Chips to Diagram Targets
+    candExamQuestionText.querySelectorAll('.wg-label-chip').forEach((chip) => {
+      chip.addEventListener('dragstart', (e) => {
+        if (isAlreadyAnswered || chip.classList.contains('is-used')) return;
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-label-val') || '');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      chip.addEventListener('click', () => {
+        if (isAlreadyAnswered || chip.classList.contains('is-used')) return;
+        const labelVal = chip.getAttribute('data-label-val') || '';
+        // Place in first empty target
+        const emptyTarget = candExamQuestionText.querySelector('.wg-label-target:not(.has-label)');
+        if (emptyTarget) {
+          emptyTarget.classList.add('has-label');
+          emptyTarget.setAttribute('data-assigned-label', labelVal);
+          emptyTarget.innerHTML = `
+            <span class="wg-grip-icon">:::</span>
+            <span class="wg-target-assigned-text">${escapeHtml(labelVal)}</span>
+            <button type="button" class="wg-remove-label-btn" title="Remove">&times;</button>
+          `;
+          chip.classList.add('is-used');
+          bindLabelTargetRemoval(emptyTarget);
+          triggerAutoSave('Auto-Saved');
+          const activeDot = examSlideDots?.children[currentSlideIndex];
+          if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+        }
+      });
+    });
+
+    function bindLabelTargetRemoval(target) {
+      const remBtn = target.querySelector('.wg-remove-label-btn');
+      if (remBtn) {
+        remBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (isAlreadyAnswered) return;
+          const assigned = target.getAttribute('data-assigned-label') || '';
+          target.classList.remove('has-label');
+          target.removeAttribute('data-assigned-label');
+          target.innerHTML = `<span class="wg-target-empty-prompt">[ Drop label here ]</span>`;
+          candExamQuestionText.querySelectorAll('.wg-label-chip').forEach((c) => {
+            if (c.getAttribute('data-label-val') === assigned) c.classList.remove('is-used');
+          });
+          triggerAutoSave('Auto-Saved');
+          const activeDot = examSlideDots?.children[currentSlideIndex];
+          if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+        });
+      }
+    }
+
+    candExamQuestionText.querySelectorAll('.wg-label-target').forEach((target) => {
+      bindLabelTargetRemoval(target);
+
+      target.addEventListener('dragover', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        target.classList.add('drag-over');
+      });
+
+      target.addEventListener('dragleave', () => {
+        target.classList.remove('drag-over');
+      });
+
+      target.addEventListener('drop', (e) => {
+        if (isAlreadyAnswered) return;
+        e.preventDefault();
+        target.classList.remove('drag-over');
+        const labelVal = e.dataTransfer.getData('text/plain');
+        if (!labelVal) return;
+
+        const prevLabel = target.getAttribute('data-assigned-label');
+        if (prevLabel) {
+          candExamQuestionText.querySelectorAll('.wg-label-chip').forEach((c) => {
+            if (c.getAttribute('data-label-val') === prevLabel) c.classList.remove('is-used');
+          });
+        }
+
+        target.classList.add('has-label');
+        target.setAttribute('data-assigned-label', labelVal);
+        target.innerHTML = `
+          <span class="wg-grip-icon">:::</span>
+          <span class="wg-target-assigned-text">${escapeHtml(labelVal)}</span>
+          <button type="button" class="wg-remove-label-btn" title="Remove">&times;</button>
+        `;
+        candExamQuestionText.querySelectorAll('.wg-label-chip').forEach((c) => {
+          if (c.getAttribute('data-label-val') === labelVal) c.classList.add('is-used');
+        });
+        bindLabelTargetRemoval(target);
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
+      });
+    });
+
+    // Wayground Action 3: Confirm Button for Multi-Select & Interactive Questions
+    const confirmBtn = candExamQuestionText.querySelector('#slideConfirmAnsBtn');
+    if (confirmBtn && !isAlreadyAnswered) {
+      confirmBtn.addEventListener('click', () => {
+        collectCurrentSlideAnswerFromDOM();
+        if (!isSlideAnswered(q, currentSlideIndex)) {
+          showToast('Please make a selection or arrangement before submitting');
+          return;
+        }
+        skippedSlides.delete(currentSlideIndex);
+        candExamQuestionText.querySelectorAll('input, select, button').forEach((el) => {
+          if (el !== confirmBtn) el.disabled = true;
+        });
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<span>✓ Answer Saved</span>`;
+        confirmBtn.style.background = '#16a34a';
+
+        triggerAutoSave('Answer Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.add('answered');
+
+        triggerAutoAdvance(450);
+      });
+    }
+
+    candExamQuestionText.querySelectorAll('.slide-text-input, .slide-table-fill-input').forEach((txt) => {
+      if (isAlreadyAnswered) {
+        txt.disabled = true;
+      }
       txt.addEventListener('input', () => {
+        if (isAlreadyAnswered) return;
         triggerAutoSave('Saving...');
         const activeDot = examSlideDots?.children[currentSlideIndex];
         if (activeDot) {
-          activeDot.classList.toggle('answered', txt.value.trim().length > 0);
+          activeDot.classList.toggle('answered', isSlideAnswered(q, currentSlideIndex));
         }
+      });
+    });
+
+    candExamQuestionText.querySelectorAll('.slide-reorder-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const listEl = candExamQuestionText.querySelector('.slide-reorder-list');
+        const rowEl = btn.closest('.slide-reorder-item');
+        if (!listEl || !rowEl) return;
+        const isUp = btn.classList.contains('move-up');
+        if (isUp && rowEl.previousElementSibling) {
+          listEl.insertBefore(rowEl, rowEl.previousElementSibling);
+        } else if (!isUp && rowEl.nextElementSibling) {
+          listEl.insertBefore(rowEl.nextElementSibling, rowEl);
+        }
+        const allRows = Array.from(listEl.querySelectorAll('.slide-reorder-item'));
+        allRows.forEach((r, idx) => {
+          const rankSpan = r.querySelector('.slide-reorder-rank');
+          if (rankSpan) rankSpan.textContent = idx + 1;
+          const upBtn = r.querySelector('.move-up');
+          const downBtn = r.querySelector('.move-down');
+          if (upBtn) upBtn.disabled = idx === 0;
+          if (downBtn) downBtn.disabled = idx === allRows.length - 1;
+        });
+        triggerAutoSave('Auto-Saved');
+        const activeDot = examSlideDots?.children[currentSlideIndex];
+        if (activeDot) activeDot.classList.add('answered');
       });
     });
   }
@@ -1127,7 +2104,112 @@ document.addEventListener('DOMContentLoaded', () => {
     examSubmissionDismissBtn.addEventListener('click', closeExamSubmissionAnimation);
   }
 
-  function playExamSubmissionAnimation({ progName, totalSlides, answeredSlides, reason }) {
+  function evaluateCandidateExamResults(slides, answers) {
+    let totalMarks = 0;
+    let maxMarks = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
+    const reviews = [];
+
+    (slides || []).forEach((q, idx) => {
+      if (q.type === 'section') return;
+      const qNum = idx + 1;
+      const qPts = Math.max(0, parseFloat(q.points) || 1);
+      maxMarks += qPts;
+      const qKey = q.id || `slide_${idx}`;
+      const rawAns = answers ? answers[qKey] : undefined;
+      const type = q.type || 'mcq';
+
+      let isCorrect = false;
+      let earned = 0;
+      let studentAnsDisplay = '';
+      let expectedAnsDisplay = '';
+
+      if (type === 'mcq' || type === 'radio' || type === 'true_false' || type === 'dropdown' || type === 'hotspot') {
+        const expected = String(q.correctAnswer || '').trim();
+        expectedAnsDisplay = expected;
+        const student = String(rawAns || '').trim();
+        studentAnsDisplay = student;
+        if (expected && student && expected.toLowerCase() === student.toLowerCase()) {
+          isCorrect = true;
+          earned = qPts;
+        }
+      } else if (type === 'checkbox') {
+        const expectedArr = Array.isArray(q.correctOptions) && q.correctOptions.length > 0
+          ? q.correctOptions
+          : (q.correctAnswer ? [q.correctAnswer] : []);
+        expectedAnsDisplay = expectedArr.join(', ');
+        const studentArr = Array.isArray(rawAns) ? rawAns : (rawAns ? [rawAns] : []);
+        studentAnsDisplay = studentArr.join(', ');
+        const exactMatch = expectedArr.length === studentArr.length &&
+          expectedArr.every((e) => studentArr.some((s) => String(s).trim().toLowerCase() === String(e).trim().toLowerCase()));
+        if (exactMatch && expectedArr.length > 0) {
+          isCorrect = true;
+          earned = qPts;
+        }
+      } else if (type === 'reorder') {
+        const expectedArr = Array.isArray(q.correctOptions) && q.correctOptions.length > 0
+          ? q.correctOptions
+          : (Array.isArray(q.options) ? q.options : []);
+        expectedAnsDisplay = expectedArr.join(' -> ');
+        const studentArr = Array.isArray(rawAns) ? rawAns : [];
+        studentAnsDisplay = studentArr.join(' -> ');
+        if (expectedArr.length > 0 && expectedArr.length === studentArr.length &&
+            expectedArr.every((exp, i) => String(exp).trim().toLowerCase() === String(studentArr[i]).trim().toLowerCase())) {
+          isCorrect = true;
+          earned = qPts;
+        }
+      } else if (type === 'match' || type === 'drag_drop' || type === 'categorize' || type === 'match_grid') {
+        const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+        expectedAnsDisplay = pairs.map((p) => `${p.left} -> ${p.right}`).join('; ');
+        const studentMap = rawAns && typeof rawAns === 'object' && !Array.isArray(rawAns) ? rawAns : {};
+        studentAnsDisplay = Object.entries(studentMap).map(([k, v]) => `${k} -> ${v}`).join('; ');
+        let matched = 0;
+        pairs.forEach((p) => {
+          const chosen = studentMap[p.left];
+          if (chosen && p.right && String(chosen).trim().toLowerCase() === String(p.right).trim().toLowerCase()) {
+            matched++;
+          }
+        });
+        if (pairs.length > 0 && matched === pairs.length) {
+          isCorrect = true;
+          earned = qPts;
+        }
+      } else {
+        // labeling / text
+        const expected = String(q.answerKey || q.correctAnswer || '').trim();
+        expectedAnsDisplay = expected;
+        const student = String(rawAns || '').trim();
+        studentAnsDisplay = student;
+        if (expected && student && expected.toLowerCase() === student.toLowerCase()) {
+          isCorrect = true;
+          earned = qPts;
+        }
+      }
+
+      if (isCorrect) {
+        correctCount++;
+        totalMarks += earned;
+      } else {
+        wrongCount++;
+      }
+
+      reviews.push({
+        qNum,
+        prompt: q.questionText || `Question ${qNum}`,
+        isCorrect,
+        earnedPts: earned,
+        maxPts: qPts,
+        studentAnsDisplay: studentAnsDisplay || 'No Answer / Skipped',
+        expectedAnsDisplay: expectedAnsDisplay || 'Discretionary'
+      });
+    });
+
+    const percentage = maxMarks > 0 ? Math.round((totalMarks / maxMarks) * 100) : 0;
+    return { totalMarks, maxMarks, percentage, correctCount, wrongCount, reviews };
+  }
+
+  function playExamSubmissionAnimation({ progName, totalSlides, answeredSlides, reason, slides, answers }) {
     if (!examSubmissionAnimOverlay) return;
     const isManual = !reason || reason === 'Submitted';
 
@@ -1141,13 +2223,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (examSubmissionTitle) {
       examSubmissionTitle.textContent = isManual
-        ? 'Exam Submitted Successfully!'
+        ? 'Exam Completed Successfully!'
         : 'Exam Auto-Submitted & Saved!';
     }
     if (examSubmissionSubtitle) {
       examSubmissionSubtitle.textContent = isManual
-        ? 'Your exam paper has been securely submitted and locked for valuation.'
-        : `Triggered by "${reason}". All your answered slides were automatically saved and submitted.`;
+        ? 'Here is your score breakdown and verified answer review:'
+        : `Triggered by "${reason}". Here is your score breakdown and verified answer review:`;
     }
     if (examSubmissionProgName) examSubmissionProgName.textContent = progName || 'Program Exam';
     if (examSubmissionAnsweredCount) {
@@ -1155,6 +2237,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (examSubmissionChestCode) {
       examSubmissionChestCode.textContent = `#${participant.chestNo}`;
+    }
+
+    // Render Wayground Marks & True/False Answer Review
+    const reviewData = evaluateCandidateExamResults(slides || activeSlides || [], answers || currentAnswers || {});
+
+    if (examSubmissionResultsBox) {
+      examSubmissionResultsBox.style.display = 'block';
+    }
+    if (examResultScoreBadge) {
+      examResultScoreBadge.textContent = `Score: ${reviewData.totalMarks} / ${reviewData.maxMarks} Pts (${reviewData.percentage}%)`;
+    }
+    if (examResultCorrectCount) {
+      examResultCorrectCount.textContent = `✓ ${reviewData.correctCount} Correct (True)`;
+    }
+    if (examResultWrongCount) {
+      examResultWrongCount.textContent = `✗ ${reviewData.wrongCount} Incorrect (False)`;
+    }
+    if (examResultsReviewList) {
+      examResultsReviewList.innerHTML = reviewData.reviews.map((r) => `
+        <div class="result-review-card ${r.isCorrect ? 'is-correct' : 'is-wrong'}">
+          <div class="result-review-header">
+            <span class="result-status-tag ${r.isCorrect ? 'correct' : 'wrong'}">
+              ${r.isCorrect ? '✓ True (Correct)' : '✗ False (Incorrect)'}
+            </span>
+            <span class="result-points-tag">${r.earnedPts} / ${r.maxPts} Pts</span>
+          </div>
+          <div class="result-q-prompt"><strong>Q${r.qNum}:</strong> ${escapeHtml(r.prompt)}</div>
+          <div class="result-ans-row">
+            <span class="result-ans-label">Your Answer:</span>
+            <span class="result-ans-val ${r.isCorrect ? 'correct-text' : 'wrong-text'}">${escapeHtml(r.studentAnsDisplay)}</span>
+          </div>
+          ${!r.isCorrect ? `
+          <div class="result-ans-row">
+            <span class="result-ans-label">Correct Key:</span>
+            <span class="result-ans-val correct-text">${escapeHtml(r.expectedAnsDisplay)}</span>
+          </div>` : ''}
+        </div>
+      `).join('');
     }
 
     // Restart CSS animations cleanly
@@ -1170,10 +2290,10 @@ document.addEventListener('DOMContentLoaded', () => {
       examSubmissionAnimOverlay.classList.add('active');
     });
 
-    if (submitAnimDismissTimer) clearTimeout(submitAnimDismissTimer);
-    submitAnimDismissTimer = setTimeout(() => {
-      closeExamSubmissionAnimation();
-    }, 3800);
+    if (submitAnimDismissTimer) {
+      clearTimeout(submitAnimDismissTimer);
+      submitAnimDismissTimer = null;
+    }
   }
 
   async function startFullscreenSlideExam(prog) {
@@ -1198,6 +2318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     activeProgram = prog;
     currentSlideIndex = 0;
+    skippedSlides.clear();
 
     // Load previously auto-saved answers so candidate never loses work
     const prevAttempt = getCandidateAttempt(prog.key);
@@ -1291,6 +2412,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {}
     }
 
+    const activeSlidesCopy = [...activeSlides];
+    const currentAnswersCopy = { ...currentAnswers };
+
     if (candidateExamModal) {
       candidateExamModal.classList.remove('open');
       candidateExamModal.setAttribute('aria-hidden', 'true');
@@ -1304,11 +2428,13 @@ document.addEventListener('DOMContentLoaded', () => {
       progName: progToSave.name,
       totalSlides: totalSlidesCount,
       answeredSlides: answeredCount,
-      reason
+      reason,
+      slides: activeSlidesCopy,
+      answers: currentAnswersCopy
     });
   }
 
-  // Slide Navigation: Back & Continue
+  // Slide Navigation: Back, Continue & Skip
   if (examSlideBackBtn) {
     examSlideBackBtn.addEventListener('click', () => {
       if (currentSlideIndex > 0) {
@@ -1316,6 +2442,17 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSlideIndex--;
         renderCurrentSlide();
       }
+    });
+  }
+
+  if (examSlideSkipBtn) {
+    examSlideSkipBtn.addEventListener('click', () => {
+      skippedSlides.add(currentSlideIndex);
+      triggerAutoSave('Auto-Saved');
+      showToast('Question skipped — you will return to it before final submission.');
+      const nextIdx = findNextSlideIndex(currentSlideIndex);
+      currentSlideIndex = nextIdx;
+      renderCurrentSlide();
     });
   }
 
